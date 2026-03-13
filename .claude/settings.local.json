@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc --noEmit)",
       "Bash(npm run build)",
-      "Bash(npx tsc -p ./)"
+      "Bash(npx tsc -p ./)",
+      "Bash(npm run build:webview)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { MergeRequest, GitLabChange, GitLabCommit, GitLabUser, GitLabNote, ApprovalState } from '../types';
+import { MergeRequest, GitLabChange, GitLabCommit, GitLabUser, GitLabNote, ApprovalState, GitLabDiscussion, GitLabDiscussionPosition } from '../types';
 
 export class GitLabClient {
   constructor(
@@ -225,6 +225,38 @@ export class GitLabClient {
   async deleteMrNote(projectPath: string, mrIid: number, noteId: number): Promise<void> {
     const encodedPath = encodeURIComponent(projectPath);
     await this.requestDelete(`/projects/${encodedPath}/merge_requests/${mrIid}/notes/${noteId}`);
+  }
+
+  async getMrDiscussions(projectPath: string, mrIid: number): Promise<GitLabDiscussion[]> {
+    const encodedPath = encodeURIComponent(projectPath);
+    return this.request<GitLabDiscussion[]>(
+      `/projects/${encodedPath}/merge_requests/${mrIid}/discussions?per_page=100`
+    );
+  }
+
+  async createMrDiscussion(
+    projectPath: string,
+    mrIid: number,
+    body: string,
+    position: GitLabDiscussionPosition
+  ): Promise<GitLabDiscussion> {
+    const encodedPath = encodeURIComponent(projectPath);
+    return this.requestPost<GitLabDiscussion>(
+      `/projects/${encodedPath}/merge_requests/${mrIid}/discussions`,
+      { body, position }
+    );
+  }
+
+  async deleteMrDiscussionNote(
+    projectPath: string,
+    mrIid: number,
+    discussionId: string,
+    noteId: number
+  ): Promise<void> {
+    const encodedPath = encodeURIComponent(projectPath);
+    await this.requestDelete(
+      `/projects/${encodedPath}/merge_requests/${mrIid}/discussions/${discussionId}/notes/${noteId}`
+    );
   }
 
   async testConnection(): Promise<{ success: boolean; user?: string; error?: string }> {

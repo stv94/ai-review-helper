@@ -55,6 +55,42 @@ export interface ApprovalState {
   approvedBy: GitLabUser[];
 }
 
+export interface DiffRefs {
+  base_sha: string;
+  start_sha: string;
+  head_sha: string;
+}
+
+export interface GitLabDiscussionPosition {
+  base_sha: string;
+  start_sha: string;
+  head_sha: string;
+  old_path: string;
+  new_path: string;
+  position_type: 'text';
+  old_line: number | null;
+  new_line: number | null;
+}
+
+export interface GitLabDiscussionNote {
+  id: number;
+  body: string;
+  author: GitLabUser;
+  created_at: string;
+  updated_at: string;
+  system: boolean;
+  type?: string | null;
+  position?: GitLabDiscussionPosition | null;
+  resolvable?: boolean;
+  resolved?: boolean;
+}
+
+export interface GitLabDiscussion {
+  id: string;
+  individual_note: boolean;
+  notes: GitLabDiscussionNote[];
+}
+
 // ---- MR types ----
 
 export interface MergeRequest {
@@ -70,6 +106,7 @@ export interface MergeRequest {
   created_at: string;
   project_id: number;
   projectPath: string;
+  diff_refs?: DiffRefs | null;
 }
 
 // ---- Narrative types ----
@@ -97,8 +134,10 @@ export interface ReviewNarrative {
 export type ExtMessage =
   | { type: 'loading'; message: string }
   | { type: 'error'; message: string }
-  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null }
+  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null; discussions: GitLabDiscussion[] }
   | { type: 'reviewReady'; narrative: ReviewNarrative; parsedDiffs: ParsedDiff[] }
   | { type: 'approvalUpdated'; approvalState: ApprovalState }
   | { type: 'commentAdded'; note: GitLabNote }
-  | { type: 'commentDeleted'; noteId: number };
+  | { type: 'commentDeleted'; noteId: number }
+  | { type: 'inlineCommentAdded'; discussion: GitLabDiscussion }
+  | { type: 'inlineCommentDeleted'; discussionId: string; noteId: number };

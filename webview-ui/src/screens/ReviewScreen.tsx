@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MergeRequest, ReviewNarrative, ParsedDiff, NarrativeBlock, ApprovalState } from '../types';
+import { MergeRequest, ReviewNarrative, ParsedDiff, NarrativeBlock, ApprovalState, GitLabDiscussion, GitLabDiscussionPosition, DiffRefs } from '../types';
 import { Translations } from '../translations';
 import MrHeader from '../components/MrHeader';
 import DiffViewer from '../components/DiffViewer';
@@ -15,6 +15,8 @@ interface Props {
   diffModes: Record<string, DiffMode>;
   approvalState: ApprovalState | null;
   currentUserId: number | null;
+  discussions: GitLabDiscussion[];
+  diffRefs: DiffRefs | null;
   onPrev: () => void;
   onNext: () => void;
   onJump: (idx: number) => void;
@@ -22,6 +24,8 @@ interface Props {
   onOpenInGitLab: (url: string) => void;
   onApprove: () => void;
   onRevoke: () => void;
+  onAddInlineComment: (body: string, position: GitLabDiscussionPosition) => void;
+  onDeleteInlineComment: (discussionId: string, noteId: number) => void;
 }
 
 // ---- Overview banner ----
@@ -49,6 +53,11 @@ interface NarrativeBlockViewProps {
   mrWebUrl: string;
   onOpenInGitLab: (url: string) => void;
   t: Translations;
+  discussions: GitLabDiscussion[];
+  diffRefs: DiffRefs | null;
+  currentUserId: number | null;
+  onAddInlineComment: (body: string, position: GitLabDiscussionPosition) => void;
+  onDeleteInlineComment: (discussionId: string, noteId: number) => void;
 }
 
 function NarrativeBlockView({
@@ -60,6 +69,11 @@ function NarrativeBlockView({
   mrWebUrl,
   onOpenInGitLab,
   t,
+  discussions,
+  diffRefs,
+  currentUserId,
+  onAddInlineComment,
+  onDeleteInlineComment,
 }: NarrativeBlockViewProps) {
   const diffs = block.diffIds
     .map((id) => parsedDiffs.find((pd) => pd.block.id === id))
@@ -89,18 +103,31 @@ function NarrativeBlockView({
       {diffs.length > 0 && (
         <div className="block-section">
           <div className="block-section-label">{t.secChanges(diffs.length)}</div>
-          {diffs.map((pd) => (
-            <DiffViewer
-              key={pd.block.id}
-              parsedDiff={pd}
-              context={ctxMap[pd.block.id] ?? ''}
-              mode={diffModes[pd.block.id] ?? 'inline'}
-              onModeChange={onSetDiffMode}
-              mrWebUrl={mrWebUrl}
-              t={t}
-              onOpenInGitLab={onOpenInGitLab}
-            />
-          ))}
+          {diffs.map((pd) => {
+            // Filter discussions to only those belonging to this file
+            const fileDiscussions = discussions.filter((d) => {
+              const pos = d.notes[0]?.position;
+              if (!pos) return false;
+              return pos.new_path === pd.block.newPath || pos.old_path === pd.block.oldPath;
+            });
+            return (
+              <DiffViewer
+                key={pd.block.id}
+                parsedDiff={pd}
+                context={ctxMap[pd.block.id] ?? ''}
+                mode={diffModes[pd.block.id] ?? 'inline'}
+                onModeChange={onSetDiffMode}
+                mrWebUrl={mrWebUrl}
+                t={t}
+                onOpenInGitLab={onOpenInGitLab}
+                discussions={fileDiscussions}
+                diffRefs={diffRefs}
+                currentUserId={currentUserId}
+                onAddInlineComment={onAddInlineComment}
+                onDeleteInlineComment={onDeleteInlineComment}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -123,6 +150,8 @@ export default function ReviewScreen({
   diffModes,
   approvalState,
   currentUserId,
+  discussions,
+  diffRefs,
   onPrev,
   onNext,
   onJump,
@@ -130,6 +159,8 @@ export default function ReviewScreen({
   onOpenInGitLab,
   onApprove,
   onRevoke,
+  onAddInlineComment,
+  onDeleteInlineComment,
 }: Props) {
   const { blocks } = narrative;
   const block = blocks[currentBlockIdx];
@@ -194,6 +225,11 @@ export default function ReviewScreen({
               mrWebUrl={mr.web_url}
               onOpenInGitLab={onOpenInGitLab}
               t={t}
+              discussions={discussions}
+              diffRefs={diffRefs}
+              currentUserId={currentUserId}
+              onAddInlineComment={onAddInlineComment}
+              onDeleteInlineComment={onDeleteInlineComment}
             />
           )}
         </div>

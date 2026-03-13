@@ -1,5 +1,8 @@
 import { useReducer, useEffect, useCallback } from 'react';
-import { MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative, ExtMessage, ApprovalState, GitLabNote } from './types';
+import {
+  MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative, ExtMessage,
+  ApprovalState, GitLabNote, GitLabDiscussion, GitLabDiscussionPosition, DiffRefs,
+} from './types';
 import { TR, LangKey, Translations } from './translations';
 import { postMessage } from './vscode';
 import Toolbar from './components/Toolbar';
@@ -25,12 +28,14 @@ interface AppState {
   approvalState: ApprovalState | null;
   notes: GitLabNote[];
   currentUserId: number | null;
+  discussions: GitLabDiscussion[];
+  diffRefs: DiffRefs | null;
 }
 
 type AppAction =
   | { type: 'LOADING'; msg: string }
   | { type: 'ERROR'; msg: string }
-  | { type: 'MR_LOADED'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null }
+  | { type: 'MR_LOADED'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null; discussions: GitLabDiscussion[] }
   | { type: 'REVIEW_READY'; narrative: ReviewNarrative; parsedDiffs: ParsedDiff[] }
   | { type: 'NAVIGATE'; delta: number }
   | { type: 'JUMP_TO'; idx: number }
@@ -38,7 +43,9 @@ type AppAction =
   | { type: 'BACK' }
   | { type: 'APPROVAL_UPDATED'; approvalState: ApprovalState }
   | { type: 'COMMENT_ADDED'; note: GitLabNote }
-  | { type: 'COMMENT_DELETED'; noteId: number };
+  | { type: 'COMMENT_DELETED'; noteId: number }
+  | { type: 'INLINE_COMMENT_ADDED'; discussion: GitLabDiscussion }
+  | { type: 'INLINE_COMMENT_DELETED'; discussionId: string; noteId: number };
 
 const initial: AppState = {
   screen: 'input',
@@ -53,6 +60,8 @@ const initial: AppState = {
   approvalState: null,
   notes: [],
   currentUserId: null,
+  discussions: [],
+  diffRefs: null,
 };
 
 function reducer(state: AppState, action: AppAction): AppState {
@@ -72,6 +81,8 @@ function reducer(state: AppState, action: AppAction): AppState {
         approvalState: action.approvalState,
         notes: action.notes,
         currentUserId: action.currentUserId,
+        discussions: action.discussions,
+        diffRefs: action.mr.diff_refs ?? null,
       };
     case 'REVIEW_READY':
       return {
@@ -103,6 +114,18 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, notes: [...state.notes, action.note] };
     case 'COMMENT_DELETED':
       return { ...state, notes: state.notes.filter((n) => n.id !== action.noteId) };
+    case 'INLINE_COMMENT_ADDED':
+      return { ...state, discussions: [...state.discussions, action.discussion] };
+    case 'INLINE_COMMENT_DELETED': {
+      const updated = state.discussions
+        .map((d) =>
+          d.id === action.discussionId
+            ? { ...d, notes: d.notes.filter((n) => n.id !== action.noteId) }
+            : d
+        )
+        .filter((d) => d.notes.some((n) => !n.system));
+      return { ...state, discussions: updated };
+    }
     default:
       return state;
   }
@@ -139,6 +162,7 @@ export default function App() {
             approvalState: msg.approvalState,
             notes: msg.notes,
             currentUserId: msg.currentUserId,
+            discussions: msg.discussions,
           });
           break;
         case 'reviewReady':
@@ -152,6 +176,12 @@ export default function App() {
           break;
         case 'commentDeleted':
           dispatch({ type: 'COMMENT_DELETED', noteId: msg.noteId });
+          break;
+        case 'inlineCommentAdded':
+          dispatch({ type: 'INLINE_COMMENT_ADDED', discussion: msg.discussion });
+          break;
+        case 'inlineCommentDeleted':
+          dispatch({ type: 'INLINE_COMMENT_DELETED', discussionId: msg.discussionId, noteId: msg.noteId });
           break;
       }
     };
@@ -171,6 +201,17 @@ export default function App() {
   const onRevoke = useCallback(() => postMessage({ type: 'revokeMR' }), []);
   const onAddComment = useCallback((body: string) => postMessage({ type: 'addComment', body }), []);
   const onDeleteComment = useCallback((noteId: number) => postMessage({ type: 'deleteComment', noteId }), []);
+
+  const onAddInlineComment = useCallback(
+    (body: string, position: GitLabDiscussionPosition) =>
+      postMessage({ type: 'addInlineComment', body, position }),
+    []
+  );
+  const onDeleteInlineComment = useCallback(
+    (discussionId: string, noteId: number) =>
+      postMessage({ type: 'deleteInlineComment', discussionId, noteId }),
+    []
+  );
 
   const showBack = state.screen !== 'input';
 
@@ -220,6 +261,8 @@ export default function App() {
             diffModes={state.diffModes}
             approvalState={state.approvalState}
             currentUserId={state.currentUserId}
+            discussions={state.discussions}
+            diffRefs={state.diffRefs}
             onPrev={() => dispatch({ type: 'NAVIGATE', delta: -1 })}
             onNext={() => dispatch({ type: 'NAVIGATE', delta: 1 })}
             onJump={(idx) => dispatch({ type: 'JUMP_TO', idx })}
@@ -227,6 +270,8 @@ export default function App() {
             onOpenInGitLab={openInGitLab}
             onApprove={onApprove}
             onRevoke={onRevoke}
+            onAddInlineComment={onAddInlineComment}
+            onDeleteInlineComment={onDeleteInlineComment}
           />
         )}
       </div>

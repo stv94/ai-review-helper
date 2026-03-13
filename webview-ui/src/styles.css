@@ -558,3 +558,114 @@ td.line-added   { background: var(--added-bg); }
   white-space: nowrap;
 }
 .link-gitlab:hover { text-decoration: underline; }
+
+/* ========== Inline diff comments ========== */
+
+/* Line number becomes clickable when commenting is available */
+.line-num-clickable {
+  cursor: pointer;
+  position: relative;
+}
+.line-num-clickable:hover {
+  background: rgba(130, 80, 255, 0.12);
+  color: var(--vscode-foreground);
+}
+
+/* "+" add-comment button — hidden by default, shown on hover */
+.line-add-btn {
+  display: none;
+  position: absolute;
+  left: 2px;
+  color: var(--vscode-button-background);
+  font-weight: 700;
+  font-size: 0.9em;
+  line-height: 1;
+}
+.line-num-clickable:hover .line-add-btn {
+  display: inline;
+}
+
+/* Thread row spanning all columns */
+.inline-thread-row td,
+.inline-thread-split-outer td {
+  padding: 0;
+  border-top: none;
+}
+
+.inline-thread-cell {
+  padding: 8px 12px !important;
+  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+  border-top: 1px solid var(--vscode-widget-border, #333) !important;
+  border-bottom: 1px solid var(--vscode-widget-border, #333) !important;
+}
+
+/* Individual inline note */
+.inline-note {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border, #444);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+.inline-note:last-of-type { margin-bottom: 0; }
+.inline-note.inline-note-own {
+  border-color: rgba(130, 80, 255, 0.35);
+  background: rgba(130, 80, 255, 0.04);
+}
+
+.inline-note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.82em;
+}
+.inline-note-author {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+.inline-note-date {
+  color: var(--vscode-descriptionForeground);
+  flex: 1;
+}
+.inline-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inline-note-body {
+  font-size: 0.9em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Compose area */
+.inline-compose {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inline-compose-textarea {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, #555);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: inherit;
+  resize: vertical;
+  outline: none;
+}
+.inline-compose-textarea:focus { border-color: var(--vscode-focusBorder); }
+
+.inline-compose-actions {
+  display: flex;
+  gap: 6px;
+}

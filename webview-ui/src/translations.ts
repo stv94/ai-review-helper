@@ -38,6 +38,10 @@ export interface Translations {
   commentPlaceholder: string;
   noComments: string;
   confirmDelete: string;
+  addInlineComment: string;
+  cancelInlineComment: string;
+  inlineCommentPlaceholder: string;
+  postInlineComment: string;
 }
 
 export const TR: Record<LangKey, Translations> = {
@@ -70,6 +74,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Add a comment...',
     noComments: 'No comments yet.',
     confirmDelete: 'Delete?',
+    addInlineComment: 'Add comment', cancelInlineComment: 'Cancel',
+    inlineCommentPlaceholder: 'Leave a comment on this line...', postInlineComment: 'Comment',
   },
   ru: {
     title: '🔍 AI MR Ревьюер',
@@ -100,6 +106,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Добавить комментарий...',
     noComments: 'Комментариев пока нет.',
     confirmDelete: 'Удалить?',
+    addInlineComment: 'Добавить комментарий', cancelInlineComment: 'Отмена',
+    inlineCommentPlaceholder: 'Оставить комментарий к строке...', postInlineComment: 'Комментарий',
   },
   de: {
     title: '🔍 AI MR Reviewer',
@@ -130,6 +138,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Kommentar hinzufügen...',
     noComments: 'Noch keine Kommentare.',
     confirmDelete: 'Löschen?',
+    addInlineComment: 'Kommentar hinzufügen', cancelInlineComment: 'Abbrechen',
+    inlineCommentPlaceholder: 'Kommentar zu dieser Zeile...', postInlineComment: 'Kommentar',
   },
   fr: {
     title: '🔍 Revue MR IA',
@@ -160,6 +170,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Ajouter un commentaire...',
     noComments: 'Aucun commentaire pour le moment.',
     confirmDelete: 'Supprimer?',
+    addInlineComment: 'Ajouter un commentaire', cancelInlineComment: 'Annuler',
+    inlineCommentPlaceholder: 'Laisser un commentaire sur cette ligne...', postInlineComment: 'Commenter',
   },
   es: {
     title: '🔍 Revisor MR IA',
@@ -190,6 +202,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Añadir un comentario...',
     noComments: 'Sin comentarios todavía.',
     confirmDelete: '¿Eliminar?',
+    addInlineComment: 'Añadir comentario', cancelInlineComment: 'Cancelar',
+    inlineCommentPlaceholder: 'Deja un comentario en esta línea...', postInlineComment: 'Comentar',
   },
   pt: {
     title: '🔍 Revisor MR IA',
@@ -220,6 +234,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'Adicionar comentário...',
     noComments: 'Sem comentários ainda.',
     confirmDelete: 'Excluir?',
+    addInlineComment: 'Adicionar comentário', cancelInlineComment: 'Cancelar',
+    inlineCommentPlaceholder: 'Deixar um comentário nesta linha...', postInlineComment: 'Comentar',
   },
   zh: {
     title: '🔍 AI MR 审查工具',
@@ -250,6 +266,8 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: '添加评论...',
     noComments: '暂无评论。',
     confirmDelete: '删除？',
+    addInlineComment: '添加评论', cancelInlineComment: '取消',
+    inlineCommentPlaceholder: '对此行留下评论...', postInlineComment: '评论',
   },
   ja: {
     title: '🔍 AI MR レビュアー',
@@ -280,5 +298,7 @@ export const TR: Record<LangKey, Translations> = {
     commentPlaceholder: 'コメントを追加...',
     noComments: 'まだコメントはありません。',
     confirmDelete: '削除？',
+    addInlineComment: 'コメントを追加', cancelInlineComment: 'キャンセル',
+    inlineCommentPlaceholder: 'この行にコメントを残す...', postInlineComment: 'コメント',
   },
 };

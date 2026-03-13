@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { WebViewToExtMessage, MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative, GitLabUser } from '../types';
+import { WebViewToExtMessage, MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative, GitLabUser, GitLabDiscussionPosition } from '../types';
 import { getConfig, getLlmBaseUrl, validateConfig } from '../config';
 import { GitLabClient, parseMrUrl } from '../clients/gitlabClient';
 import { LlmClient } from '../clients/llmClient';
@@ -91,6 +91,14 @@ export class ReviewPanel {
       case 'deleteComment':
         await this.handleDeleteComment(msg.noteId);
         break;
+
+      case 'addInlineComment':
+        await this.handleAddInlineComment(msg.body, msg.position);
+        break;
+
+      case 'deleteInlineComment':
+        await this.handleDeleteInlineComment(msg.discussionId, msg.noteId);
+        break;
     }
   }
 
@@ -145,15 +153,17 @@ export class ReviewPanel {
       this.currentDiffBlocks = diffBlocks;
 
       // Fetch optional data (best-effort — failures don't block the UI)
-      const [userResult, approvalsResult, notesResult] = await Promise.allSettled([
+      const [userResult, approvalsResult, notesResult, discussionsResult] = await Promise.allSettled([
         gitlab.getCurrentUser(),
         gitlab.getMrApprovalState(projectPath, mrIid),
         gitlab.getMrNotes(projectPath, mrIid),
+        gitlab.getMrDiscussions(projectPath, mrIid),
       ]);
 
       this.currentUser = userResult.status === 'fulfilled' ? userResult.value : null;
       const approvalState = approvalsResult.status === 'fulfilled' ? approvalsResult.value : null;
       const notes = notesResult.status === 'fulfilled' ? notesResult.value : [];
+      const discussions = discussionsResult.status === 'fulfilled' ? discussionsResult.value : [];
 
       this.post({
         type: 'mrLoaded',
@@ -162,6 +172,7 @@ export class ReviewPanel {
         approvalState,
         notes,
         currentUserId: this.currentUser?.id ?? null,
+        discussions,
       });
     } catch (err) {
       this.post({ type: 'error', message: (err as Error).message });
@@ -262,6 +273,40 @@ export class ReviewPanel {
       this.post({ type: 'commentDeleted', noteId });
     } catch (err) {
       vscode.window.showErrorMessage(`Failed to delete comment: ${(err as Error).message}`);
+    }
+  }
+
+  private async handleAddInlineComment(body: string, position: GitLabDiscussionPosition): Promise<void> {
+    if (!this.currentMr || !body.trim()) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      const discussion = await gitlab.createMrDiscussion(
+        this.currentMr.projectPath,
+        this.currentMr.iid,
+        body.trim(),
+        position
+      );
+      this.post({ type: 'inlineCommentAdded', discussion });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to add inline comment: ${(err as Error).message}`);
+    }
+  }
+
+  private async handleDeleteInlineComment(discussionId: string, noteId: number): Promise<void> {
+    if (!this.currentMr) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      await gitlab.deleteMrDiscussionNote(
+        this.currentMr.projectPath,
+        this.currentMr.iid,
+        discussionId,
+        noteId
+      );
+      this.post({ type: 'inlineCommentDeleted', discussionId, noteId });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to delete inline comment: ${(err as Error).message}`);
     }
   }
 
