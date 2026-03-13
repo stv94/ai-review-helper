@@ -1,8 +1,15 @@
 .vscode/**
 .vscode-test/**
 src/**
+webview-ui/src/**
+webview-ui/node_modules/**
+webview-ui/package.json
+webview-ui/tsconfig*.json
+webview-ui/vite.config.ts
+webview-ui/index.html
 .gitignore
 tsconfig.json
 **/*.ts
 !out/**
+!webview-ui/dist/**
 node_modules/**
