@@ -13,6 +13,7 @@ export function getConfig(): ExtensionConfig {
     llmModel: cfg.get<string>('llmModel', 'gpt-4o'),
     llmBaseUrl: cfg.get<string>('llmBaseUrl', ''),
     maxDiffChunkSize: cfg.get<number>('maxDiffChunkSize', 8000),
+    language: cfg.get<string>('language', 'en'),
   };
 }
 
@@ -29,6 +30,7 @@ export async function saveConfig(settings: Partial<ExtensionConfig>): Promise<vo
   if (settings.llmModel !== undefined) updates.push(['llmModel', settings.llmModel]);
   if (settings.llmBaseUrl !== undefined) updates.push(['llmBaseUrl', settings.llmBaseUrl]);
   if (settings.maxDiffChunkSize !== undefined) updates.push(['maxDiffChunkSize', settings.maxDiffChunkSize]);
+  if (settings.language !== undefined) updates.push(['language', settings.language]);
 
   for (const [key, value] of updates) {
     await cfg.update(key, value, target);

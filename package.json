@@ -86,6 +86,23 @@
           "default": 8000,
           "description": "Max characters per diff chunk sent to LLM (to avoid context limits)",
           "order": 7
+        },
+        "ai-review-helper.language": {
+          "type": "string",
+          "enum": ["en", "ru", "de", "fr", "es", "pt", "zh", "ja"],
+          "enumDescriptions": [
+            "English",
+            "Русский",
+            "Deutsch",
+            "Français",
+            "Español",
+            "Português",
+            "中文",
+            "日本語"
+          ],
+          "default": "en",
+          "description": "Language for the UI and LLM responses",
+          "order": 8
         }
       }
     }

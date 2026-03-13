@@ -81,7 +81,19 @@ export interface ExtensionConfig {
   llmModel: string;
   llmBaseUrl: string;
   maxDiffChunkSize: number;
+  language: string;
 }
+
+export const SUPPORTED_LANGUAGES: Record<string, string> = {
+  en: 'English',
+  ru: 'Русский',
+  de: 'Deutsch',
+  fr: 'Français',
+  es: 'Español',
+  pt: 'Português',
+  zh: '中文',
+  ja: '日本語',
+};
 
 export interface ReviewState {
   mr: MergeRequest;

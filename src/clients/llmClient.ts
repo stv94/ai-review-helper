@@ -1,7 +1,18 @@
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { ReviewNarrative, DiffBlock, MergeRequest } from '../types';
+import { ReviewNarrative, DiffBlock, MergeRequest, SUPPORTED_LANGUAGES } from '../types';
+
+/** Returns the full language name for a language code, e.g. "ru" → "Russian (Русский)" */
+function languageLabel(code: string): string {
+  const nativeName = SUPPORTED_LANGUAGES[code];
+  const englishNames: Record<string, string> = {
+    en: 'English', ru: 'Russian', de: 'German', fr: 'French',
+    es: 'Spanish', pt: 'Portuguese', zh: 'Chinese', ja: 'Japanese',
+  };
+  const eng = englishNames[code] ?? code;
+  return nativeName && nativeName !== eng ? `${eng} (${nativeName})` : eng;
+}
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -89,19 +100,20 @@ export class LlmClient {
   async generateNarrative(
     mr: MergeRequest,
     diffBlocks: DiffBlock[],
-    maxChunkSize: number
+    maxChunkSize: number,
+    language = 'en'
   ): Promise<ReviewNarrative> {
     const chunks = chunkDiffBlocks(diffBlocks, maxChunkSize);
 
     if (chunks.length === 1) {
-      return this.generateNarrativeForChunk(mr, chunks[0], diffBlocks);
+      return this.generateNarrativeForChunk(mr, chunks[0], diffBlocks, undefined, undefined, language);
     }
 
     // Multiple chunks — process each and merge
     const allBlocks: ReviewNarrative['blocks'] = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      const narrative = await this.generateNarrativeForChunk(mr, chunk, diffBlocks, i + 1, chunks.length);
+      const narrative = await this.generateNarrativeForChunk(mr, chunk, diffBlocks, i + 1, chunks.length, language);
       allBlocks.push(...narrative.blocks);
     }
 
@@ -113,12 +125,18 @@ export class LlmClient {
     diffBlocks: DiffBlock[],
     allDiffBlocks: DiffBlock[],
     chunkIndex?: number,
-    totalChunks?: number
+    totalChunks?: number,
+    language = 'en'
   ): Promise<ReviewNarrative> {
     const chunkInfo =
       chunkIndex !== undefined
         ? `\n\nNote: This is chunk ${chunkIndex} of ${totalChunks}. Cover only the diff blocks provided in this request.`
         : '';
+
+    const langLabel = languageLabel(language);
+    const langInstruction = language !== 'en'
+      ? `\n\nLANGUAGE REQUIREMENT: Write ALL text fields (title, explanation, analysis) in ${langLabel}. Do not use English for these fields.`
+      : '';
 
     const diffBlocksText = diffBlocks
       .map(
@@ -149,7 +167,7 @@ Return ONLY valid JSON in this exact format:
   ]
 }
 
-CRITICAL RULE: Every diff block ID must appear in exactly one "diff_ids" array. Missing IDs: ${allIds.join(', ')}${chunkInfo}`;
+CRITICAL RULE: Every diff block ID must appear in exactly one "diff_ids" array. Missing IDs: ${allIds.join(', ')}${chunkInfo}${langInstruction}`;
 
     const userMessage = `Merge Request: "${mr.title}"
 

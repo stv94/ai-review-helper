@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ExtensionConfig, WebViewToExtMessage } from '../types';
+import { ExtensionConfig, WebViewToExtMessage, SUPPORTED_LANGUAGES } from '../types';
 import { getConfig, saveConfig } from '../config';
 import { GitLabClient } from '../clients/gitlabClient';
 import { LlmClient } from '../clients/llmClient';
@@ -400,6 +400,30 @@ export class SettingsPanel {
     <div id="llmTestResult" class="test-result"></div>
   </div>
 
+  <!-- Language Section -->
+  <div class="section">
+    <div class="section-title">
+      <span class="icon">🌐</span> Language / Язык
+    </div>
+
+    <div class="field">
+      <label for="language">
+        Interface & LLM response language
+        <span class="hint">Affects both the UI and the AI review text</span>
+      </label>
+      <select id="language">
+        ${Object.entries(SUPPORTED_LANGUAGES).map(([code, name]) =>
+          `<option value="${code}">${name} (${code})</option>`
+        ).join('\n        ')}
+      </select>
+    </div>
+
+    <div class="provider-hint" style="display:block;margin-top:0">
+      💡 After changing the language, reopen the Review panel to apply the UI translation.
+      LLM responses will use the new language immediately.
+    </div>
+  </div>
+
   <!-- Save Bar -->
   <div class="save-bar">
     <button class="btn-primary" id="btnSave">💾 Save Settings</button>
@@ -455,6 +479,7 @@ export class SettingsPanel {
       document.getElementById('llmModel').value = s.llmModel || 'gpt-4o';
       document.getElementById('llmBaseUrl').value = s.llmBaseUrl || '';
       document.getElementById('maxDiffChunkSize').value = s.maxDiffChunkSize || 8000;
+      document.getElementById('language').value = s.language || 'en';
       onProviderChange(false);
     }
 
@@ -467,6 +492,7 @@ export class SettingsPanel {
         llmModel: document.getElementById('llmModel').value.trim(),
         llmBaseUrl: document.getElementById('llmBaseUrl').value.trim(),
         maxDiffChunkSize: parseInt(document.getElementById('maxDiffChunkSize').value, 10) || 8000,
+        language: document.getElementById('language').value,
       };
     }
 
@@ -484,6 +510,7 @@ export class SettingsPanel {
         llmModel: 'gpt-4o',
         llmBaseUrl: '',
         maxDiffChunkSize: 8000,
+        language: 'en',
       });
     }
 

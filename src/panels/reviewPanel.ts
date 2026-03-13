@@ -149,7 +149,8 @@ export class ReviewPanel {
       let narrative = await llm.generateNarrative(
         this.currentMr,
         this.currentDiffBlocks,
-        cfg.maxDiffChunkSize
+        cfg.maxDiffChunkSize,
+        cfg.language
       );
 
       narrative = validateNarrativeDiffIds(narrative, this.currentDiffBlocks);
@@ -185,8 +186,9 @@ export class ReviewPanel {
 
   private getHtml(): string {
     const nonce = getNonce();
+    const lang = getConfig().language || 'en';
     return /* html */ `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -621,7 +623,7 @@ export class ReviewPanel {
 <div class="app">
   <!-- Toolbar -->
   <div class="toolbar">
-    <span class="toolbar-title">🔍 AI MR Reviewer</span>
+    <span class="toolbar-title" id="toolbarTitle">🔍 AI MR Reviewer</span>
     <div class="toolbar-spacer"></div>
     <button class="btn-ghost btn-sm" id="btnBack" style="display:none">← New MR</button>
     <button class="btn-ghost btn-sm" id="btnSettings">⚙ Settings</button>
@@ -631,28 +633,28 @@ export class ReviewPanel {
     <!-- ====== INPUT SCREEN ====== -->
     <div id="screen-input" class="screen active">
       <div class="input-card">
-        <h2>Review a Merge Request</h2>
-        <p>Paste a GitLab MR URL or enter project details manually.</p>
+        <h2 id="cardTitle">Review a Merge Request</h2>
+        <p id="cardSubtitle">Paste a GitLab MR URL or enter project details manually.</p>
 
         <div class="input-section">
-          <label class="input-label">MR URL</label>
+          <label class="input-label" id="urlLabel">MR URL</label>
           <div class="url-row">
             <input type="text" id="mrUrl" placeholder="https://gitlab.com/group/project/-/merge_requests/42" />
             <button class="btn-primary" id="btnLoadUrl">Load</button>
           </div>
         </div>
 
-        <div class="divider">or</div>
+        <div class="divider" id="orDivider">or</div>
 
         <div class="input-section">
-          <label class="input-label">Project & MR ID</label>
+          <label class="input-label" id="idsLabel">Project & MR ID</label>
           <div class="ids-row">
             <div class="field">
-              <label>Project path</label>
+              <label id="pathLabel">Project path</label>
               <input type="text" id="projectPath" placeholder="group/project" />
             </div>
             <div class="field" style="max-width:120px">
-              <label>MR IID</label>
+              <label id="iidLabel">MR IID</label>
               <input type="number" id="mrIid" placeholder="42" min="1" />
             </div>
             <button class="btn-primary" id="btnLoadIds">Load</button>
@@ -682,6 +684,7 @@ export class ReviewPanel {
       <div class="mr-header" id="mrHeader"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
         <button class="btn-primary" id="btnGenerate">✨ Generate AI Review</button>
+        <!-- text set by applyTranslations() -->
       </div>
       <div id="diffOverview"></div>
     </div>
@@ -692,7 +695,7 @@ export class ReviewPanel {
       <div class="walkthrough">
         <div class="nav-bar">
           <button class="btn-secondary btn-sm" id="btnPrev">← Prev</button>
-          <span class="nav-counter" id="navCounter">1 / 1</span>
+          <span class="nav-counter" id="navCounter"></span>
           <button class="btn-primary btn-sm" id="btnNext">Next →</button>
           <div class="nav-spacer"></div>
           <select class="jump-select" id="jumpSelect"></select>
@@ -705,6 +708,182 @@ export class ReviewPanel {
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  const LANG = '${lang}';
+
+  // ============ Translations ============
+  const TR = {
+    en: {
+      title: '🔍 AI MR Reviewer',
+      btnBack: '← New MR', btnSettings: '⚙ Settings',
+      urlLabel: 'MR URL', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Load', orDivider: 'or',
+      idsLabel: 'Project & MR ID', pathLabel: 'Project path', iidLabel: 'MR IID',
+      cardTitle: 'Review a Merge Request',
+      cardSubtitle: 'Paste a GitLab MR URL or enter project details manually.',
+      btnGenerate: '✨ Generate AI Review',
+      btnPrev: '← Prev', btnNext: 'Next →',
+      filesChanged: (n) => n + ' file(s) changed',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Step',
+      secExplanation: '📋 Explanation',
+      secChanges: (n) => '📄 Changes (' + n + ' file' + (n > 1 ? 's' : '') + ')',
+      secAnalysis: '⚠️ Critical Analysis',
+      noDiff: 'No diff content',
+      btnInline: 'Inline', btnSplit: 'Split',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Open in GitLab',
+      loadingDefault: 'Loading...',
+    },
+    ru: {
+      title: '🔍 AI MR Ревьюер',
+      btnBack: '← Новый MR', btnSettings: '⚙ Настройки',
+      urlLabel: 'URL Merge Request', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Загрузить', orDivider: 'или',
+      idsLabel: 'Проект и ID', pathLabel: 'Путь к проекту', iidLabel: 'MR IID',
+      cardTitle: 'Ревью Merge Request',
+      cardSubtitle: 'Вставьте URL MR или укажите проект и номер вручную.',
+      btnGenerate: '✨ Создать AI-ревью',
+      btnPrev: '← Назад', btnNext: 'Далее →',
+      filesChanged: (n) => 'Изменено файлов: ' + n,
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Шаг',
+      secExplanation: '📋 Объяснение',
+      secChanges: (n) => '📄 Изменения (' + n + ' файл' + (n === 1 ? '' : n < 5 ? 'а' : 'ов') + ')',
+      secAnalysis: '⚠️ Критический анализ',
+      noDiff: 'Нет содержимого diff',
+      btnInline: 'Строчно', btnSplit: 'Разделить',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Открыть в GitLab',
+      loadingDefault: 'Загрузка...',
+    },
+    de: {
+      title: '🔍 AI MR Reviewer',
+      btnBack: '← Neuer MR', btnSettings: '⚙ Einstellungen',
+      urlLabel: 'MR-URL', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Laden', orDivider: 'oder',
+      idsLabel: 'Projekt & MR-ID', pathLabel: 'Projektpfad', iidLabel: 'MR IID',
+      cardTitle: 'Merge Request prüfen',
+      cardSubtitle: 'Fügen Sie eine GitLab-MR-URL ein oder geben Sie die Projektdaten manuell ein.',
+      btnGenerate: '✨ AI-Review erstellen',
+      btnPrev: '← Zurück', btnNext: 'Weiter →',
+      filesChanged: (n) => n + ' Datei(en) geändert',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Schritt',
+      secExplanation: '📋 Erklärung',
+      secChanges: (n) => '📄 Änderungen (' + n + ' Datei' + (n > 1 ? 'en' : '') + ')',
+      secAnalysis: '⚠️ Kritische Analyse',
+      noDiff: 'Kein Diff-Inhalt',
+      btnInline: 'Inline', btnSplit: 'Geteilt',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 In GitLab öffnen',
+      loadingDefault: 'Wird geladen...',
+    },
+    fr: {
+      title: '🔍 Revue MR IA',
+      btnBack: '← Nouveau MR', btnSettings: '⚙ Paramètres',
+      urlLabel: 'URL de la MR', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Charger', orDivider: 'ou',
+      idsLabel: 'Projet & ID MR', pathLabel: 'Chemin du projet', iidLabel: 'MR IID',
+      cardTitle: 'Réviser une Merge Request',
+      cardSubtitle: "Collez l'URL de la MR ou entrez le projet manuellement.",
+      btnGenerate: '✨ Générer la revue IA',
+      btnPrev: '← Précédent', btnNext: 'Suivant →',
+      filesChanged: (n) => n + ' fichier(s) modifié(s)',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Étape',
+      secExplanation: '📋 Explication',
+      secChanges: (n) => '📄 Modifications (' + n + ' fichier' + (n > 1 ? 's' : '') + ')',
+      secAnalysis: '⚠️ Analyse critique',
+      noDiff: 'Aucun contenu diff',
+      btnInline: 'Intégré', btnSplit: 'Divisé',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Ouvrir dans GitLab',
+      loadingDefault: 'Chargement...',
+    },
+    es: {
+      title: '🔍 Revisor MR IA',
+      btnBack: '← Nuevo MR', btnSettings: '⚙ Ajustes',
+      urlLabel: 'URL de la MR', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Cargar', orDivider: 'o',
+      idsLabel: 'Proyecto e ID MR', pathLabel: 'Ruta del proyecto', iidLabel: 'MR IID',
+      cardTitle: 'Revisar Merge Request',
+      cardSubtitle: 'Pegue la URL de la MR o ingrese el proyecto manualmente.',
+      btnGenerate: '✨ Generar revisión IA',
+      btnPrev: '← Anterior', btnNext: 'Siguiente →',
+      filesChanged: (n) => n + ' archivo(s) cambiado(s)',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Paso',
+      secExplanation: '📋 Explicación',
+      secChanges: (n) => '📄 Cambios (' + n + ' archivo' + (n > 1 ? 's' : '') + ')',
+      secAnalysis: '⚠️ Análisis crítico',
+      noDiff: 'Sin contenido diff',
+      btnInline: 'En línea', btnSplit: 'Dividido',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir en GitLab',
+      loadingDefault: 'Cargando...',
+    },
+    pt: {
+      title: '🔍 Revisor MR IA',
+      btnBack: '← Novo MR', btnSettings: '⚙ Configurações',
+      urlLabel: 'URL da MR', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: 'Carregar', orDivider: 'ou',
+      idsLabel: 'Projeto & ID MR', pathLabel: 'Caminho do projeto', iidLabel: 'MR IID',
+      cardTitle: 'Revisar Merge Request',
+      cardSubtitle: 'Cole a URL da MR ou insira o projeto manualmente.',
+      btnGenerate: '✨ Gerar revisão IA',
+      btnPrev: '← Anterior', btnNext: 'Próximo →',
+      filesChanged: (n) => n + ' arquivo(s) alterado(s)',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'Passo',
+      secExplanation: '📋 Explicação',
+      secChanges: (n) => '📄 Alterações (' + n + ' arquivo' + (n > 1 ? 's' : '') + ')',
+      secAnalysis: '⚠️ Análise crítica',
+      noDiff: 'Sem conteúdo diff',
+      btnInline: 'Em linha', btnSplit: 'Dividido',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir no GitLab',
+      loadingDefault: 'Carregando...',
+    },
+    zh: {
+      title: '🔍 AI MR 审查工具',
+      btnBack: '← 新的 MR', btnSettings: '⚙ 设置',
+      urlLabel: 'MR 链接', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: '加载', orDivider: '或',
+      idsLabel: '项目和 MR ID', pathLabel: '项目路径', iidLabel: 'MR IID',
+      cardTitle: '审查 Merge Request',
+      cardSubtitle: '粘贴 GitLab MR 链接，或手动输入项目信息。',
+      btnGenerate: '✨ 生成 AI 审查',
+      btnPrev: '← 上一步', btnNext: '下一步 →',
+      filesChanged: (n) => '已更改 ' + n + ' 个文件',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: '步骤',
+      secExplanation: '📋 说明',
+      secChanges: (n) => '📄 更改（' + n + ' 个文件）',
+      secAnalysis: '⚠️ 关键分析',
+      noDiff: '无 diff 内容',
+      btnInline: '内联', btnSplit: '分屏',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 在 GitLab 中打开',
+      loadingDefault: '加载中...',
+    },
+    ja: {
+      title: '🔍 AI MR レビュアー',
+      btnBack: '← 新しい MR', btnSettings: '⚙ 設定',
+      urlLabel: 'MR URL', urlPlaceholder: 'https://gitlab.com/group/project/-/merge_requests/42',
+      btnLoad: '読み込む', orDivider: 'または',
+      idsLabel: 'プロジェクトと MR ID', pathLabel: 'プロジェクトパス', iidLabel: 'MR IID',
+      cardTitle: 'Merge Request をレビューする',
+      cardSubtitle: 'GitLab MR の URL を貼り付けるか、プロジェクト情報を手動で入力してください。',
+      btnGenerate: '✨ AI レビューを生成',
+      btnPrev: '← 前へ', btnNext: '次へ →',
+      filesChanged: (n) => n + ' ファイルが変更されました',
+      stepLabel: (n, t) => n + ' / ' + t,
+      jumpPrefix: 'ステップ',
+      secExplanation: '📋 説明',
+      secChanges: (n) => '📄 変更（' + n + ' ファイル）',
+      secAnalysis: '⚠️ クリティカル分析',
+      noDiff: 'diff の内容なし',
+      btnInline: 'インライン', btnSplit: '分割',
+      linkGitlab: '↗ GitLab', linkOpenMr: '🔗 GitLab で開く',
+      loadingDefault: '読み込み中...',
+    },
+  };
+
+  // Pick translations, fall back to English
+  const t = TR[LANG] || TR['en'];
 
   let state = {
     mr: null,
@@ -729,6 +908,27 @@ export class ReviewPanel {
   document.getElementById('mrUrl').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadByUrl();
   });
+
+  // ============ Apply translations to static HTML ============
+  function applyTranslations() {
+    document.getElementById('toolbarTitle').textContent = t.title;
+    document.getElementById('btnBack').textContent = t.btnBack;
+    document.getElementById('btnSettings').textContent = t.btnSettings;
+    document.getElementById('cardTitle').textContent = t.cardTitle;
+    document.getElementById('cardSubtitle').textContent = t.cardSubtitle;
+    document.getElementById('urlLabel').textContent = t.urlLabel;
+    document.getElementById('mrUrl').placeholder = t.urlPlaceholder;
+    document.getElementById('btnLoadUrl').textContent = t.btnLoad;
+    document.getElementById('orDivider').textContent = t.orDivider;
+    document.getElementById('idsLabel').textContent = t.idsLabel;
+    document.getElementById('pathLabel').textContent = t.pathLabel;
+    document.getElementById('iidLabel').textContent = t.iidLabel;
+    document.getElementById('btnLoadIds').textContent = t.btnLoad;
+    document.getElementById('btnGenerate').textContent = t.btnGenerate;
+    document.getElementById('btnPrev').textContent = t.btnPrev;
+    document.getElementById('btnNext').textContent = t.btnNext;
+  }
+  applyTranslations();
 
   // ============ Event delegation for dynamic content ============
   document.addEventListener('click', (e) => {
@@ -770,7 +970,7 @@ export class ReviewPanel {
   }
 
   function showLoading(msg) {
-    document.getElementById('loadingMsg').textContent = msg || 'Loading...';
+    document.getElementById('loadingMsg').textContent = msg || t.loadingDefault;
     showScreen('loading');
   }
 
@@ -817,7 +1017,7 @@ export class ReviewPanel {
       '<div class="mr-meta">' +
         '<span>👤 ' + escHtml((mr.author && mr.author.name) || '') + '</span>' +
         '<span>🌿 <code>' + escHtml(mr.source_branch) + '</code> → <code>' + escHtml(mr.target_branch) + '</code></span>' +
-        '<a class="link-gitlab" data-gitlab-url="' + escAttr(mr.web_url) + '">🔗 Open in GitLab</a>' +
+        '<a class="link-gitlab" data-gitlab-url="' + escAttr(mr.web_url) + '">' + t.linkOpenMr + '</a>' +
       '</div>' +
       (desc ? '<div class="mr-description">' + desc + '</div>' : '');
   }
@@ -825,7 +1025,7 @@ export class ReviewPanel {
   function renderDiffOverview(diffBlocks) {
     const el = document.getElementById('diffOverview');
     let html = '<div style="font-size:0.9em;color:var(--vscode-descriptionForeground);margin-bottom:12px;">' +
-      diffBlocks.length + ' file(s) changed</div>';
+      t.filesChanged(diffBlocks.length) + '</div>';
     for (const b of diffBlocks) {
       const sign = b.isNewFile
         ? '<span style="color:var(--added)">+</span>'
@@ -854,7 +1054,7 @@ export class ReviewPanel {
 
     const jumpSel = document.getElementById('jumpSelect');
     jumpSel.innerHTML = narrative.blocks.map((b, i) =>
-      '<option value="' + i + '">Step ' + (i+1) + ': ' + escHtml(b.title.substring(0,40)) + '</option>'
+      '<option value="' + i + '">' + t.jumpPrefix + ' ' + (i+1) + ': ' + escHtml(b.title.substring(0,40)) + '</option>'
     ).join('');
 
     renderMrHeader('mrHeaderReview', state.mr);
@@ -880,7 +1080,7 @@ export class ReviewPanel {
     const block = blocks[idx];
     if (!block) return;
 
-    document.getElementById('navCounter').textContent = (idx + 1) + ' / ' + blocks.length;
+    document.getElementById('navCounter').textContent = t.stepLabel(idx + 1, blocks.length);
     document.getElementById('btnPrev').disabled = idx === 0;
     document.getElementById('btnNext').disabled = idx === blocks.length - 1;
 
@@ -895,13 +1095,13 @@ export class ReviewPanel {
           '<div class="block-title">' + escHtml(block.title) + '</div>' +
         '</div>' +
         '<div class="block-section">' +
-          '<div class="block-section-label">📋 Explanation</div>' +
+          '<div class="block-section-label">' + t.secExplanation + '</div>' +
           '<div class="block-explanation">' + escHtml(block.explanation) + '</div>' +
         '</div>';
 
     if (diffs.length > 0) {
       html += '<div class="block-section">' +
-        '<div class="block-section-label">📄 Changes (' + diffs.length + ' file' + (diffs.length > 1 ? 's' : '') + ')</div>' +
+        '<div class="block-section-label">' + t.secChanges(diffs.length) + '</div>' +
         diffs.map(pd => renderDiffBlock(pd)).join('') +
         '</div>';
     }
@@ -909,7 +1109,7 @@ export class ReviewPanel {
     if (block.analysis) {
       html +=
         '<div class="block-section">' +
-          '<div class="block-section-label">⚠️ Critical Analysis</div>' +
+          '<div class="block-section-label">' + t.secAnalysis + '</div>' +
           '<div class="block-analysis">' + escHtml(block.analysis) + '</div>' +
         '</div>';
     }
@@ -935,7 +1135,7 @@ export class ReviewPanel {
     const gitlabUrl = state.mr.web_url + '/diffs';
 
     const hunksHtml = parsedDiff.hunks.length === 0
-      ? '<div style="padding:8px 12px;color:var(--vscode-descriptionForeground);font-size:0.85em">No diff content</div>'
+      ? '<div style="padding:8px 12px;color:var(--vscode-descriptionForeground);font-size:0.85em">' + t.noDiff + '</div>'
       : parsedDiff.hunks.map(h => renderHunk(h, mode)).join('');
 
     return '<div class="diff-container" id="dc-' + diffId + '">' +
@@ -943,10 +1143,10 @@ export class ReviewPanel {
         '<span class="diff-file-path">' + escHtml(b.filePath) + '</span>' +
         badge +
         '<div class="diff-mode-toggle">' +
-          '<button class="diff-mode-btn ' + (mode==='inline'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="inline">Inline</button>' +
-          '<button class="diff-mode-btn ' + (mode==='split'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="split">Split</button>' +
+          '<button class="diff-mode-btn ' + (mode==='inline'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="inline">' + t.btnInline + '</button>' +
+          '<button class="diff-mode-btn ' + (mode==='split'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="split">' + t.btnSplit + '</button>' +
         '</div>' +
-        '<a class="link-gitlab" data-gitlab-url="' + escAttr(gitlabUrl) + '">↗ GitLab</a>' +
+        '<a class="link-gitlab" data-gitlab-url="' + escAttr(gitlabUrl) + '">' + t.linkGitlab + '</a>' +
       '</div>' +
       '<div class="diff-' + mode + '" id="dm-' + diffId + '">' + hunksHtml + '</div>' +
     '</div>';
