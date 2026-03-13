@@ -54,7 +54,7 @@ Fill in:
 | **GitLab Token** | Personal Access Token with `api` scope |
 | **LLM Provider** | `openai`, `openrouter`, or `custom` |
 | **LLM API Key** | Your LLM provider API key |
-| **LLM Model** | Model name (default: `gpt-4o`) |
+| **LLM Model** | Model name (default: `gpt-5.1`, recommended: `gpt-5.1` or `claude-opus-4-6`) |
 | **LLM Base URL** | Required for OpenRouter or custom endpoints |
 | **Language** | UI and review language |
 
@@ -94,7 +94,7 @@ All settings are under the `ai-review-helper.*` namespace:
 | `ai-review-helper.gitlabToken` | — | GitLab Personal Access Token |
 | `ai-review-helper.llmProvider` | `openai` | LLM provider: `openai`, `openrouter`, `custom` |
 | `ai-review-helper.llmApiKey` | — | LLM API key |
-| `ai-review-helper.llmModel` | `gpt-4o` | Model name (e.g. `gpt-4o`, `anthropic/claude-3-5-sonnet`) |
+| `ai-review-helper.llmModel` | `gpt-5.1` | Model name (e.g. `gpt-5.1`, `anthropic/claude-opus-4-6`) |
 | `ai-review-helper.llmBaseUrl` | — | Base URL for OpenRouter or custom endpoints |
 | `ai-review-helper.maxDiffChunkSize` | `8000` | Max characters per diff chunk (tune for your model's context window) |
 | `ai-review-helper.language` | `en` | UI and review language |
@@ -123,7 +123,7 @@ All settings are under the `ai-review-helper.*` namespace:
 
 - **GitLab only** — GitHub and Bitbucket are not currently supported.
 - **Large MRs** — Very large MRs may produce less coherent narratives due to chunking. Adjust `maxDiffChunkSize` to match your model's context window.
-- **Model quality** — Review quality depends on the LLM model used. GPT-4o and Claude 3.5 Sonnet produce the best results.
+- **Model quality** — Review quality depends on the LLM model used. GPT-5.1 and Claude Opus 4.6 produce the best results.
 
 ---
 

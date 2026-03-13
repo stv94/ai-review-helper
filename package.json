@@ -96,8 +96,8 @@
         },
         "ai-review-helper.llmModel": {
           "type": "string",
-          "default": "gpt-4o",
-          "description": "LLM Model name (e.g. gpt-4o, gpt-4-turbo, anthropic/claude-3-5-sonnet)",
+          "default": "gpt-5.1",
+          "description": "LLM Model name (e.g. gpt-5.1, anthropic/claude-opus-4-6)",
           "order": 5
         },
         "ai-review-helper.llmBaseUrl": {
