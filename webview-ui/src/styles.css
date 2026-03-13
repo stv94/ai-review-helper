@@ -230,7 +230,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 /* ========== Walkthrough ========== */
-.walkthrough { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.walkthrough { display: flex; flex-direction: column; }
 
 .nav-bar {
   display: flex;
@@ -239,6 +239,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 10px 0;
   flex-shrink: 0;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--vscode-editor-background);
+  margin: 0 -24px;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 .nav-counter { font-size: 0.9em; color: var(--vscode-descriptionForeground); min-width: 80px; }
 .nav-spacer { flex: 1; }
@@ -253,7 +260,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   max-width: 250px;
 }
 
-.block-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+.block-content { padding-bottom: 20px; }
 
 /* ========== Narrative block ========== */
 .narrative-block {
@@ -474,10 +481,7 @@ td.line-added   { background: var(--added-bg); }
   font-size: 0.9em;
 }
 
-.comments-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
+.comments-list {}
 
 .comment-item {
   padding: 10px 16px;
