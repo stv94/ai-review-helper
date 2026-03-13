@@ -1,0 +1,104 @@
+{
+  "name": "ai-review-helper",
+  "displayName": "AI Merge Request Reviewer",
+  "description": "AI-powered GitLab Merge Request reviewer with step-by-step walkthrough",
+  "version": "0.1.0",
+  "publisher": "ai-review-helper",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "icon": "resources/icon.png",
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-review-helper.reviewMR",
+        "title": "Review Merge Request",
+        "category": "AI Review",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "ai-review-helper.openSettings",
+        "title": "Open Settings",
+        "category": "AI Review",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "ai-review-helper.reviewMR"
+        },
+        {
+          "command": "ai-review-helper.openSettings"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Review Helper",
+      "properties": {
+        "ai-review-helper.gitlabUrl": {
+          "type": "string",
+          "default": "https://gitlab.com",
+          "description": "GitLab instance URL (e.g. https://gitlab.com or https://your-gitlab.company.com)",
+          "order": 1
+        },
+        "ai-review-helper.gitlabToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab Personal Access Token with api scope",
+          "order": 2
+        },
+        "ai-review-helper.llmProvider": {
+          "type": "string",
+          "enum": ["openai", "openrouter", "custom"],
+          "enumDescriptions": [
+            "OpenAI (api.openai.com)",
+            "OpenRouter (openrouter.ai)",
+            "Custom OpenAI-compatible endpoint"
+          ],
+          "default": "openai",
+          "description": "LLM Provider",
+          "order": 3
+        },
+        "ai-review-helper.llmApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API Key",
+          "order": 4
+        },
+        "ai-review-helper.llmModel": {
+          "type": "string",
+          "default": "gpt-4o",
+          "description": "LLM Model name (e.g. gpt-4o, gpt-4-turbo, anthropic/claude-3-5-sonnet)",
+          "order": 5
+        },
+        "ai-review-helper.llmBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom LLM Base URL. Leave empty for OpenAI default. Required for OpenRouter and custom endpoints.",
+          "order": 6
+        },
+        "ai-review-helper.maxDiffChunkSize": {
+          "type": "number",
+          "default": 8000,
+          "description": "Max characters per diff chunk sent to LLM (to avoid context limits)",
+          "order": 7
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
