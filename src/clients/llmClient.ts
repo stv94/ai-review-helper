@@ -1,7 +1,7 @@
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { ReviewNarrative, DiffBlock, MergeRequest, SUPPORTED_LANGUAGES } from '../types';
+import { ReviewNarrative, NarrativeBlock, DiffBlock, MergeRequest, SUPPORTED_LANGUAGES } from '../types';
 
 /** Returns the full language name for a language code, e.g. "ru" → "Russian (Русский)" */
 function languageLabel(code: string): string {
@@ -117,7 +117,15 @@ export class LlmClient {
       allBlocks.push(...narrative.blocks);
     }
 
-    return { blocks: allBlocks };
+    // Generate a single overview from all block summaries
+    let overview = '';
+    try {
+      overview = await this.generateOverview(mr, allBlocks, language);
+    } catch {
+      overview = '';
+    }
+
+    return { overview, blocks: allBlocks };
   }
 
   private async generateNarrativeForChunk(
@@ -150,24 +158,34 @@ export class LlmClient {
     const systemPrompt = `You are an expert code reviewer. Your job is to analyze a GitLab Merge Request and produce a structured, step-by-step walkthrough for the reviewer.
 
 You must:
-1. Group related diff blocks together into logical steps
-2. Explain clearly what changed and why (based on available context)
-3. Identify potential issues: bugs, code smells, architectural problems, incomplete changes
-4. Use hedging language when making assumptions: "This likely...", "This might...", "It appears..."
+1. Write a concise "overview" of what the MR achieves overall and how the steps relate to each other (2-4 sentences)
+2. Group related diff blocks together into logical steps
+3. For each step, explain clearly what changed and why
+4. For each diff file in a step, add a brief "context" note explaining why that specific file was modified
+5. For each step, provide MANDATORY non-empty "analysis" with critical remarks and concrete improvement suggestions
+6. Use hedging language when making assumptions: "This likely...", "This might...", "It appears..."
 
 Return ONLY valid JSON in this exact format:
 {
+  "overview": "2-4 sentences describing what this MR achieves, how the steps relate to each other, and the overall intent.",
   "blocks": [
     {
       "title": "Short descriptive title of this change group",
       "explanation": "Clear explanation of what changed and why. Be specific.",
       "diff_ids": ["diff-id-1", "diff-id-2"],
-      "analysis": "Critical analysis: potential bugs, issues, things to watch out for. Be constructive."
+      "diff_contexts": [
+        { "diff_id": "diff-id-1", "context": "Why this specific file was changed in this step." },
+        { "diff_id": "diff-id-2", "context": "Why this specific file was changed in this step." }
+      ],
+      "analysis": "REQUIRED — never omit or leave empty. Critical remarks: bugs, code smells, security issues, architectural concerns, and concrete improvement suggestions."
     }
   ]
 }
 
-CRITICAL RULE: Every diff block ID must appear in exactly one "diff_ids" array. Missing IDs: ${allIds.join(', ')}${chunkInfo}${langInstruction}`;
+CRITICAL RULES:
+- Every diff block ID must appear in exactly one "diff_ids" array. Missing IDs: ${allIds.join(', ')}
+- Every diff_id in diff_contexts must match an id in the same block's diff_ids
+- The "analysis" field is mandatory and must always contain substantive content${chunkInfo}${langInstruction}`;
 
     const userMessage = `Merge Request: "${mr.title}"
 
@@ -185,6 +203,46 @@ ${diffBlocksText}`;
     ]);
 
     return parseNarrativeResponse(rawResponse, allDiffBlocks);
+  }
+
+  private async generateOverview(
+    mr: MergeRequest,
+    blocks: NarrativeBlock[],
+    language = 'en'
+  ): Promise<string> {
+    const blockSummary = blocks
+      .map((b, i) => `Step ${i + 1}: ${b.title}\n${b.explanation}`)
+      .join('\n\n');
+
+    const langLabel = languageLabel(language);
+    const langInstruction =
+      language !== 'en'
+        ? `\n\nWRITE YOUR RESPONSE IN ${langLabel}. Do not use English for the overview text.`
+        : '';
+
+    const systemPrompt = `You are a senior code reviewer. Given a step-by-step review of a Merge Request, write a concise overall summary that:
+1. Describes what this MR achieves as a whole
+2. Explains how the individual steps relate to each other
+3. Gives the reviewer context before they dive into each step
+
+Return ONLY valid JSON: {"overview": "2-4 sentences here"}${langInstruction}`;
+
+    const userMessage = `MR Title: "${mr.title}"
+MR Description: ${mr.description || '(none)'}
+Source branch: ${mr.source_branch} → ${mr.target_branch}
+
+Review Steps:
+${blockSummary}`;
+
+    const raw = await this.chatCompletion([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ]);
+
+    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || raw.match(/(\{[\s\S]*\})/);
+    const jsonStr = jsonMatch ? jsonMatch[1] : raw;
+    const parsed = JSON.parse(jsonStr) as { overview?: string };
+    return parsed.overview || '';
   }
 
   async testConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
@@ -223,7 +281,16 @@ function chunkDiffBlocks(diffBlocks: DiffBlock[], maxChunkSize: number): DiffBlo
 }
 
 function parseNarrativeResponse(raw: string, allDiffBlocks: DiffBlock[]): ReviewNarrative {
-  let parsed: { blocks?: Array<{ title: string; explanation: string; diff_ids: string[]; analysis: string }> };
+  let parsed: {
+    overview?: string;
+    blocks?: Array<{
+      title: string;
+      explanation: string;
+      diff_ids: string[];
+      diff_contexts?: Array<{ diff_id: string; context: string }>;
+      analysis: string;
+    }>;
+  };
 
   try {
     // Extract JSON if wrapped in markdown code blocks
@@ -239,10 +306,15 @@ function parseNarrativeResponse(raw: string, allDiffBlocks: DiffBlock[]): Review
   }
 
   return {
+    overview: parsed.overview || '',
     blocks: parsed.blocks.map((b) => ({
       title: b.title || 'Untitled',
       explanation: b.explanation || '',
       diffIds: b.diff_ids || [],
+      diffContexts: (b.diff_contexts || []).map((c) => ({
+        diffId: c.diff_id || '',
+        context: c.context || '',
+      })),
       analysis: b.analysis || '',
     })),
   };

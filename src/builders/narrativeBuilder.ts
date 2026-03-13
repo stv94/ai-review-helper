@@ -28,11 +28,13 @@ export function ensureDiffCoverage(
     explanation:
       'The following diff blocks were not included in the AI analysis. They may contain relevant changes.',
     diffIds: unrefDiffs.map((d) => d.id),
+    diffContexts: [],
     analysis:
       'These changes were not analyzed by the LLM. Review them manually to ensure nothing was missed.',
   };
 
   return {
+    overview: narrative.overview,
     blocks: [...narrative.blocks, unreferencedBlock],
   };
 }
@@ -48,6 +50,7 @@ export function validateNarrativeDiffIds(
   const validIds = new Set(allDiffBlocks.map((b) => b.id));
 
   return {
+    overview: narrative.overview,
     blocks: narrative.blocks.map((block) => ({
       ...block,
       diffIds: block.diffIds.filter((id) => {

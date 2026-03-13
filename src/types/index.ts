@@ -62,14 +62,21 @@ export interface GitLabChange {
   diff: string;
 }
 
+export interface DiffContext {
+  diffId: string;
+  context: string;
+}
+
 export interface NarrativeBlock {
   title: string;
   explanation: string;
   diffIds: string[];
+  diffContexts: DiffContext[];
   analysis: string;
 }
 
 export interface ReviewNarrative {
+  overview: string;
   blocks: NarrativeBlock[];
 }
 

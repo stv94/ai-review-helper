@@ -164,11 +164,13 @@ export class ReviewPanel {
       // Fallback: show raw diffs
       const parsedDiffs = parseAllDiffs(this.currentDiffBlocks);
       const fallbackNarrative: ReviewNarrative = {
+        overview: '',
         blocks: [
           {
             title: 'All Changes (Raw Diffs)',
             explanation: 'AI analysis failed. Showing all diff blocks below.',
             diffIds: this.currentDiffBlocks.map((b) => b.id),
+            diffContexts: [],
             analysis: `Error: ${(err as Error).message}`,
           },
         ],
@@ -617,6 +619,56 @@ export class ReviewPanel {
       white-space: nowrap;
     }
     .link-gitlab:hover { text-decoration: underline; }
+
+    /* ========== MR Overview ========== */
+    .mr-overview {
+      background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+      border: 1px solid var(--vscode-widget-border, #444);
+      border-left: 3px solid var(--vscode-button-background);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mr-overview-header {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .mr-overview-header:hover { background: var(--vscode-list-hoverBackground); }
+    .mr-overview-label { font-weight: 600; font-size: 0.92em; flex: 1; }
+    .mr-overview-toggle { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+    .mr-overview-body {
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--vscode-widget-border, #444);
+      font-size: 0.9em;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+
+    /* ========== Per-diff context ========== */
+    .diff-context {
+      padding: 6px 12px 6px 14px;
+      border-bottom: 1px solid var(--vscode-widget-border, #333);
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground);
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* ========== Remarks (mandatory) ========== */
+    .block-remarks {
+      line-height: 1.6;
+      white-space: pre-wrap;
+      background: rgba(255, 160, 0, 0.07);
+      border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+      padding: 10px 14px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.92em;
+    }
   </style>
 </head>
 <body>
@@ -692,6 +744,14 @@ export class ReviewPanel {
     <!-- ====== REVIEW SCREEN ====== -->
     <div id="screen-review" class="screen">
       <div class="mr-header" id="mrHeaderReview"></div>
+      <!-- Overview banner (shown only when LLM returned an overview) -->
+      <div id="mrOverview" class="mr-overview" style="display:none">
+        <div class="mr-overview-header" id="mrOverviewHeader">
+          <span class="mr-overview-label" id="overviewLabel">📊 MR Overview</span>
+          <span class="mr-overview-toggle" id="overviewToggle">▾</span>
+        </div>
+        <div class="mr-overview-body" id="mrOverviewBody"></div>
+      </div>
       <div class="walkthrough">
         <div class="nav-bar">
           <button class="btn-secondary btn-sm" id="btnPrev">← Prev</button>
@@ -725,9 +785,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' file(s) changed',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Step',
+      secOverview: '📊 MR Overview',
       secExplanation: '📋 Explanation',
       secChanges: (n) => '📄 Changes (' + n + ' file' + (n > 1 ? 's' : '') + ')',
-      secAnalysis: '⚠️ Critical Analysis',
+      secRemarks: '⚠️ Remarks & Improvements',
+      remarksEmpty: 'No remarks.',
       noDiff: 'No diff content',
       btnInline: 'Inline', btnSplit: 'Split',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Open in GitLab',
@@ -746,9 +808,11 @@ export class ReviewPanel {
       filesChanged: (n) => 'Изменено файлов: ' + n,
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Шаг',
+      secOverview: '📊 Обзор MR',
       secExplanation: '📋 Объяснение',
       secChanges: (n) => '📄 Изменения (' + n + ' файл' + (n === 1 ? '' : n < 5 ? 'а' : 'ов') + ')',
-      secAnalysis: '⚠️ Критический анализ',
+      secRemarks: '⚠️ Замечания и улучшения',
+      remarksEmpty: 'Замечаний нет.',
       noDiff: 'Нет содержимого diff',
       btnInline: 'Строчно', btnSplit: 'Разделить',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Открыть в GitLab',
@@ -767,9 +831,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' Datei(en) geändert',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Schritt',
+      secOverview: '📊 MR-Übersicht',
       secExplanation: '📋 Erklärung',
       secChanges: (n) => '📄 Änderungen (' + n + ' Datei' + (n > 1 ? 'en' : '') + ')',
-      secAnalysis: '⚠️ Kritische Analyse',
+      secRemarks: '⚠️ Anmerkungen & Verbesserungen',
+      remarksEmpty: 'Keine Anmerkungen.',
       noDiff: 'Kein Diff-Inhalt',
       btnInline: 'Inline', btnSplit: 'Geteilt',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 In GitLab öffnen',
@@ -788,9 +854,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' fichier(s) modifié(s)',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Étape',
+      secOverview: '📊 Vue ensemble MR',
       secExplanation: '📋 Explication',
       secChanges: (n) => '📄 Modifications (' + n + ' fichier' + (n > 1 ? 's' : '') + ')',
-      secAnalysis: '⚠️ Analyse critique',
+      secRemarks: '⚠️ Remarques & Améliorations',
+      remarksEmpty: 'Aucune remarque.',
       noDiff: 'Aucun contenu diff',
       btnInline: 'Intégré', btnSplit: 'Divisé',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Ouvrir dans GitLab',
@@ -809,9 +877,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' archivo(s) cambiado(s)',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Paso',
+      secOverview: '📊 Resumen del MR',
       secExplanation: '📋 Explicación',
       secChanges: (n) => '📄 Cambios (' + n + ' archivo' + (n > 1 ? 's' : '') + ')',
-      secAnalysis: '⚠️ Análisis crítico',
+      secRemarks: '⚠️ Observaciones y Mejoras',
+      remarksEmpty: 'Sin observaciones.',
       noDiff: 'Sin contenido diff',
       btnInline: 'En línea', btnSplit: 'Dividido',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir en GitLab',
@@ -830,9 +900,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' arquivo(s) alterado(s)',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'Passo',
+      secOverview: '📊 Visão Geral do MR',
       secExplanation: '📋 Explicação',
       secChanges: (n) => '📄 Alterações (' + n + ' arquivo' + (n > 1 ? 's' : '') + ')',
-      secAnalysis: '⚠️ Análise crítica',
+      secRemarks: '⚠️ Observações & Melhorias',
+      remarksEmpty: 'Sem observações.',
       noDiff: 'Sem conteúdo diff',
       btnInline: 'Em linha', btnSplit: 'Dividido',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir no GitLab',
@@ -851,9 +923,11 @@ export class ReviewPanel {
       filesChanged: (n) => '已更改 ' + n + ' 个文件',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: '步骤',
+      secOverview: '📊 MR 总览',
       secExplanation: '📋 说明',
       secChanges: (n) => '📄 更改（' + n + ' 个文件）',
-      secAnalysis: '⚠️ 关键分析',
+      secRemarks: '⚠️ 备注与改进建议',
+      remarksEmpty: '无备注。',
       noDiff: '无 diff 内容',
       btnInline: '内联', btnSplit: '分屏',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 在 GitLab 中打开',
@@ -872,9 +946,11 @@ export class ReviewPanel {
       filesChanged: (n) => n + ' ファイルが変更されました',
       stepLabel: (n, t) => n + ' / ' + t,
       jumpPrefix: 'ステップ',
+      secOverview: '📊 MR 概要',
       secExplanation: '📋 説明',
       secChanges: (n) => '📄 変更（' + n + ' ファイル）',
-      secAnalysis: '⚠️ クリティカル分析',
+      secRemarks: '⚠️ 所見と改善提案',
+      remarksEmpty: '所見なし。',
       noDiff: 'diff の内容なし',
       btnInline: 'インライン', btnSplit: '分割',
       linkGitlab: '↗ GitLab', linkOpenMr: '🔗 GitLab で開く',
@@ -905,6 +981,8 @@ export class ReviewPanel {
   document.getElementById('btnNext').addEventListener('click', () => navigate(1));
   document.getElementById('jumpSelect').addEventListener('change', function() { jumpTo(this.value); });
 
+  document.getElementById('mrOverviewHeader').addEventListener('click', toggleOverview);
+
   document.getElementById('mrUrl').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadByUrl();
   });
@@ -927,6 +1005,7 @@ export class ReviewPanel {
     document.getElementById('btnGenerate').textContent = t.btnGenerate;
     document.getElementById('btnPrev').textContent = t.btnPrev;
     document.getElementById('btnNext').textContent = t.btnNext;
+    document.getElementById('overviewLabel').textContent = t.secOverview;
   }
   applyTranslations();
 
@@ -993,6 +1072,15 @@ export class ReviewPanel {
     vscode.postMessage({ type: 'loadMRByIds', projectPath: path, mrIid: iid });
   }
 
+  // ============ Overview toggle ============
+  function toggleOverview() {
+    var body = document.getElementById('mrOverviewBody');
+    var toggle = document.getElementById('overviewToggle');
+    var hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    toggle.textContent = hidden ? '▾' : '▸';
+  }
+
   // ============ MR Loaded ============
   function onMrLoaded(mr, diffBlocks) {
     state.mr = mr;
@@ -1052,6 +1140,19 @@ export class ReviewPanel {
     state.parsedDiffs = parsedDiffs;
     state.currentBlock = 0;
 
+    // Populate overview banner
+    var overviewEl = document.getElementById('mrOverview');
+    var overviewBody = document.getElementById('mrOverviewBody');
+    var overviewToggle = document.getElementById('overviewToggle');
+    if (narrative.overview) {
+      overviewBody.textContent = narrative.overview;
+      overviewBody.style.display = '';
+      overviewToggle.textContent = '▾';
+      overviewEl.style.display = '';
+    } else {
+      overviewEl.style.display = 'none';
+    }
+
     const jumpSel = document.getElementById('jumpSelect');
     jumpSel.innerHTML = narrative.blocks.map((b, i) =>
       '<option value="' + i + '">' + t.jumpPrefix + ' ' + (i+1) + ': ' + escHtml(b.title.substring(0,40)) + '</option>'
@@ -1088,6 +1189,10 @@ export class ReviewPanel {
       .map(id => state.parsedDiffs.find(pd => pd.block.id === id))
       .filter(Boolean);
 
+    // Build a map of diffId → context for fast lookup
+    const ctxMap = {};
+    (block.diffContexts || []).forEach(function(c) { ctxMap[c.diffId] = c.context; });
+
     let html =
       '<div class="narrative-block">' +
         '<div class="block-header">' +
@@ -1102,24 +1207,23 @@ export class ReviewPanel {
     if (diffs.length > 0) {
       html += '<div class="block-section">' +
         '<div class="block-section-label">' + t.secChanges(diffs.length) + '</div>' +
-        diffs.map(pd => renderDiffBlock(pd)).join('') +
+        diffs.map(pd => renderDiffBlock(pd, ctxMap[pd.block.id] || '')).join('') +
         '</div>';
     }
 
-    if (block.analysis) {
-      html +=
-        '<div class="block-section">' +
-          '<div class="block-section-label">' + t.secAnalysis + '</div>' +
-          '<div class="block-analysis">' + escHtml(block.analysis) + '</div>' +
-        '</div>';
-    }
+    // Remarks — always shown (mandatory)
+    html +=
+      '<div class="block-section">' +
+        '<div class="block-section-label">' + t.secRemarks + '</div>' +
+        '<div class="block-remarks">' + escHtml(block.analysis || t.remarksEmpty) + '</div>' +
+      '</div>';
 
     html += '</div>';
     document.getElementById('blockContent').innerHTML = html;
   }
 
   // ============ Diff Rendering ============
-  function renderDiffBlock(parsedDiff) {
+  function renderDiffBlock(parsedDiff, context) {
     const b = parsedDiff.block;
     const diffId = b.id;
     const mode = state.diffModes[diffId] || 'inline';
@@ -1133,6 +1237,10 @@ export class ReviewPanel {
       : '';
 
     const gitlabUrl = state.mr.web_url + '/diffs';
+
+    const contextHtml = context
+      ? '<div class="diff-context">📝 ' + escHtml(context) + '</div>'
+      : '';
 
     const hunksHtml = parsedDiff.hunks.length === 0
       ? '<div style="padding:8px 12px;color:var(--vscode-descriptionForeground);font-size:0.85em">' + t.noDiff + '</div>'
@@ -1148,6 +1256,7 @@ export class ReviewPanel {
         '</div>' +
         '<a class="link-gitlab" data-gitlab-url="' + escAttr(gitlabUrl) + '">' + t.linkGitlab + '</a>' +
       '</div>' +
+      contextHtml +
       '<div class="diff-' + mode + '" id="dm-' + diffId + '">' + hunksHtml + '</div>' +
     '</div>';
   }
@@ -1226,8 +1335,15 @@ export class ReviewPanel {
     if (!parsedDiff) return;
     const container = document.getElementById('dc-' + diffId);
     if (!container) return;
+    // Retrieve context for this diff from the current block
+    var context = '';
+    var curBlock = state.narrative && state.narrative.blocks[state.currentBlock];
+    if (curBlock) {
+      var ctxEntry = (curBlock.diffContexts || []).find(c => c.diffId === diffId);
+      if (ctxEntry) context = ctxEntry.context;
+    }
     const newEl = document.createElement('div');
-    newEl.innerHTML = renderDiffBlock(parsedDiff);
+    newEl.innerHTML = renderDiffBlock(parsedDiff, context);
     container.replaceWith(newEl.firstChild);
   }
 
