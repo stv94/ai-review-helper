@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { WebViewToExtMessage, MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative } from '../types';
+import { WebViewToExtMessage, MergeRequest, DiffBlock, ParsedDiff, ReviewNarrative, GitLabUser } from '../types';
 import { getConfig, getLlmBaseUrl, validateConfig } from '../config';
 import { GitLabClient, parseMrUrl } from '../clients/gitlabClient';
 import { LlmClient } from '../clients/llmClient';
@@ -14,6 +14,7 @@ export class ReviewPanel {
   // Current state
   private currentMr: MergeRequest | null = null;
   private currentDiffBlocks: DiffBlock[] = [];
+  private currentUser: GitLabUser | null = null;
 
   private constructor(panel: vscode.WebviewPanel, private readonly extensionUri: vscode.Uri) {
     this.panel = panel;
@@ -74,6 +75,22 @@ export class ReviewPanel {
       case 'openSettings':
         vscode.commands.executeCommand('ai-review-helper.openSettings');
         break;
+
+      case 'approveMR':
+        await this.handleApproveMR();
+        break;
+
+      case 'revokeMR':
+        await this.handleRevokeMR();
+        break;
+
+      case 'addComment':
+        await this.handleAddComment(msg.body);
+        break;
+
+      case 'deleteComment':
+        await this.handleDeleteComment(msg.noteId);
+        break;
     }
   }
 
@@ -117,6 +134,7 @@ export class ReviewPanel {
     try {
       const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
 
+      // Fetch required data first
       const [mr, changes] = await Promise.all([
         gitlab.getMergeRequest(projectPath, mrIid),
         gitlab.getMergeRequestChanges(projectPath, mrIid),
@@ -126,7 +144,25 @@ export class ReviewPanel {
       this.currentMr = mr;
       this.currentDiffBlocks = diffBlocks;
 
-      this.post({ type: 'mrLoaded', mr, diffBlocks });
+      // Fetch optional data (best-effort — failures don't block the UI)
+      const [userResult, approvalsResult, notesResult] = await Promise.allSettled([
+        gitlab.getCurrentUser(),
+        gitlab.getMrApprovalState(projectPath, mrIid),
+        gitlab.getMrNotes(projectPath, mrIid),
+      ]);
+
+      this.currentUser = userResult.status === 'fulfilled' ? userResult.value : null;
+      const approvalState = approvalsResult.status === 'fulfilled' ? approvalsResult.value : null;
+      const notes = notesResult.status === 'fulfilled' ? notesResult.value : [];
+
+      this.post({
+        type: 'mrLoaded',
+        mr,
+        diffBlocks,
+        approvalState,
+        notes,
+        currentUserId: this.currentUser?.id ?? null,
+      });
     } catch (err) {
       this.post({ type: 'error', message: (err as Error).message });
     }
@@ -176,6 +212,56 @@ export class ReviewPanel {
         ],
       };
       this.post({ type: 'reviewReady', narrative: fallbackNarrative, parsedDiffs });
+    }
+  }
+
+  private async handleApproveMR(): Promise<void> {
+    if (!this.currentMr) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      await gitlab.approveMR(this.currentMr.projectPath, this.currentMr.iid);
+      const approvalState = await gitlab.getMrApprovalState(this.currentMr.projectPath, this.currentMr.iid);
+      this.post({ type: 'approvalUpdated', approvalState });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to approve MR: ${(err as Error).message}`);
+    }
+  }
+
+  private async handleRevokeMR(): Promise<void> {
+    if (!this.currentMr) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      await gitlab.revokeMR(this.currentMr.projectPath, this.currentMr.iid);
+      const approvalState = await gitlab.getMrApprovalState(this.currentMr.projectPath, this.currentMr.iid);
+      this.post({ type: 'approvalUpdated', approvalState });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to revoke approval: ${(err as Error).message}`);
+    }
+  }
+
+  private async handleAddComment(body: string): Promise<void> {
+    if (!this.currentMr || !body.trim()) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      const note = await gitlab.addMrNote(this.currentMr.projectPath, this.currentMr.iid, body.trim());
+      this.post({ type: 'commentAdded', note });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to add comment: ${(err as Error).message}`);
+    }
+  }
+
+  private async handleDeleteComment(noteId: number): Promise<void> {
+    if (!this.currentMr) return;
+    const cfg = getConfig();
+    const gitlab = new GitLabClient(cfg.gitlabUrl, cfg.gitlabToken);
+    try {
+      await gitlab.deleteMrNote(this.currentMr.projectPath, this.currentMr.iid, noteId);
+      this.post({ type: 'commentDeleted', noteId });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to delete comment: ${(err as Error).message}`);
     }
   }
 

@@ -30,6 +30,14 @@ export interface Translations {
   linkGitlab: string;
   linkOpenMr: string;
   loadingDefault: string;
+  btnApprove: string;
+  btnRevoke: string;
+  approvedLabel: string;
+  commentsTitle: string;
+  postComment: string;
+  commentPlaceholder: string;
+  noComments: string;
+  confirmDelete: string;
 }
 
 export const TR: Record<LangKey, Translations> = {
@@ -55,6 +63,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'Inline', btnSplit: 'Split',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Open in GitLab',
     loadingDefault: 'Loading...',
+    btnApprove: '✅ Approve', btnRevoke: '↩ Revoke',
+    approvedLabel: 'Approved',
+    commentsTitle: '💬 Comments',
+    postComment: 'Post',
+    commentPlaceholder: 'Add a comment...',
+    noComments: 'No comments yet.',
+    confirmDelete: 'Delete?',
   },
   ru: {
     title: '🔍 AI MR Ревьюер',
@@ -78,6 +93,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'Строчно', btnSplit: 'Разделить',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Открыть в GitLab',
     loadingDefault: 'Загрузка...',
+    btnApprove: '✅ Одобрить', btnRevoke: '↩ Отозвать',
+    approvedLabel: 'Одобрено',
+    commentsTitle: '💬 Комментарии',
+    postComment: 'Отправить',
+    commentPlaceholder: 'Добавить комментарий...',
+    noComments: 'Комментариев пока нет.',
+    confirmDelete: 'Удалить?',
   },
   de: {
     title: '🔍 AI MR Reviewer',
@@ -101,6 +123,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'Inline', btnSplit: 'Geteilt',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 In GitLab öffnen',
     loadingDefault: 'Wird geladen...',
+    btnApprove: '✅ Genehmigen', btnRevoke: '↩ Widerrufen',
+    approvedLabel: 'Genehmigt',
+    commentsTitle: '💬 Kommentare',
+    postComment: 'Senden',
+    commentPlaceholder: 'Kommentar hinzufügen...',
+    noComments: 'Noch keine Kommentare.',
+    confirmDelete: 'Löschen?',
   },
   fr: {
     title: '🔍 Revue MR IA',
@@ -124,6 +153,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'Intégré', btnSplit: 'Divisé',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Ouvrir dans GitLab',
     loadingDefault: 'Chargement...',
+    btnApprove: '✅ Approuver', btnRevoke: '↩ Révoquer',
+    approvedLabel: 'Approuvé',
+    commentsTitle: '💬 Commentaires',
+    postComment: 'Publier',
+    commentPlaceholder: 'Ajouter un commentaire...',
+    noComments: 'Aucun commentaire pour le moment.',
+    confirmDelete: 'Supprimer?',
   },
   es: {
     title: '🔍 Revisor MR IA',
@@ -147,6 +183,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'En línea', btnSplit: 'Dividido',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir en GitLab',
     loadingDefault: 'Cargando...',
+    btnApprove: '✅ Aprobar', btnRevoke: '↩ Revocar',
+    approvedLabel: 'Aprobado',
+    commentsTitle: '💬 Comentarios',
+    postComment: 'Publicar',
+    commentPlaceholder: 'Añadir un comentario...',
+    noComments: 'Sin comentarios todavía.',
+    confirmDelete: '¿Eliminar?',
   },
   pt: {
     title: '🔍 Revisor MR IA',
@@ -170,6 +213,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'Em linha', btnSplit: 'Dividido',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 Abrir no GitLab',
     loadingDefault: 'Carregando...',
+    btnApprove: '✅ Aprovar', btnRevoke: '↩ Revogar',
+    approvedLabel: 'Aprovado',
+    commentsTitle: '💬 Comentários',
+    postComment: 'Publicar',
+    commentPlaceholder: 'Adicionar comentário...',
+    noComments: 'Sem comentários ainda.',
+    confirmDelete: 'Excluir?',
   },
   zh: {
     title: '🔍 AI MR 审查工具',
@@ -193,6 +243,13 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: '内联', btnSplit: '分屏',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 在 GitLab 中打开',
     loadingDefault: '加载中...',
+    btnApprove: '✅ 批准', btnRevoke: '↩ 撤销',
+    approvedLabel: '已批准',
+    commentsTitle: '💬 评论',
+    postComment: '发送',
+    commentPlaceholder: '添加评论...',
+    noComments: '暂无评论。',
+    confirmDelete: '删除？',
   },
   ja: {
     title: '🔍 AI MR レビュアー',
@@ -216,5 +273,12 @@ export const TR: Record<LangKey, Translations> = {
     btnInline: 'インライン', btnSplit: '分割',
     linkGitlab: '↗ GitLab', linkOpenMr: '🔗 GitLab で開く',
     loadingDefault: '読み込み中...',
+    btnApprove: '✅ 承認', btnRevoke: '↩ 取り消す',
+    approvedLabel: '承認済み',
+    commentsTitle: '💬 コメント',
+    postComment: '送信',
+    commentPlaceholder: 'コメントを追加...',
+    noComments: 'まだコメントはありません。',
+    confirmDelete: '削除？',
   },
 };

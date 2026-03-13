@@ -32,6 +32,29 @@ export interface ParsedDiff {
   hunks: DiffHunk[];
 }
 
+// ---- GitLab user / notes / approvals ----
+
+export interface GitLabUser {
+  id: number;
+  name: string;
+  username: string;
+}
+
+export interface GitLabNote {
+  id: number;
+  body: string;
+  author: GitLabUser;
+  created_at: string;
+  updated_at: string;
+  system: boolean;
+  type?: string | null;
+}
+
+export interface ApprovalState {
+  approved: boolean;
+  approvedBy: GitLabUser[];
+}
+
 // ---- MR types ----
 
 export interface MergeRequest {
@@ -74,5 +97,8 @@ export interface ReviewNarrative {
 export type ExtMessage =
   | { type: 'loading'; message: string }
   | { type: 'error'; message: string }
-  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[] }
-  | { type: 'reviewReady'; narrative: ReviewNarrative; parsedDiffs: ParsedDiff[] };
+  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null }
+  | { type: 'reviewReady'; narrative: ReviewNarrative; parsedDiffs: ParsedDiff[] }
+  | { type: 'approvalUpdated'; approvalState: ApprovalState }
+  | { type: 'commentAdded'; note: GitLabNote }
+  | { type: 'commentDeleted'; noteId: number };

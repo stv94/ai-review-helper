@@ -38,6 +38,27 @@ export interface GitLabCommit {
   created_at: string;
 }
 
+export interface GitLabUser {
+  id: number;
+  name: string;
+  username: string;
+}
+
+export interface GitLabNote {
+  id: number;
+  body: string;
+  author: GitLabUser;
+  created_at: string;
+  updated_at: string;
+  system: boolean;
+  type?: string | null;
+}
+
+export interface ApprovalState {
+  approved: boolean;
+  approvedBy: GitLabUser[];
+}
+
 export interface MergeRequest {
   id: number;
   iid: number;
@@ -120,14 +141,21 @@ export type WebViewToExtMessage =
   | { type: 'saveSettings'; settings: Partial<ExtensionConfig> }
   | { type: 'testGitLab' }
   | { type: 'testLLM' }
-  | { type: 'ready' };
+  | { type: 'ready' }
+  | { type: 'approveMR' }
+  | { type: 'revokeMR' }
+  | { type: 'addComment'; body: string }
+  | { type: 'deleteComment'; noteId: number };
 
 // Messages from Extension to WebView
 export type ExtToWebViewMessage =
-  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[] }
+  | { type: 'mrLoaded'; mr: MergeRequest; diffBlocks: DiffBlock[]; approvalState: ApprovalState | null; notes: GitLabNote[]; currentUserId: number | null }
   | { type: 'reviewReady'; narrative: ReviewNarrative; parsedDiffs: ParsedDiff[] }
   | { type: 'settingsLoaded'; settings: ExtensionConfig }
   | { type: 'settingsSaved' }
   | { type: 'testResult'; target: 'gitlab' | 'llm'; success: boolean; message: string }
   | { type: 'error'; message: string }
-  | { type: 'loading'; message: string };
+  | { type: 'loading'; message: string }
+  | { type: 'approvalUpdated'; approvalState: ApprovalState }
+  | { type: 'commentAdded'; note: GitLabNote }
+  | { type: 'commentDeleted'; noteId: number };

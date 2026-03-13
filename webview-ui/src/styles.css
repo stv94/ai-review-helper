@@ -423,6 +423,132 @@ tr.line-removed .line-sign { color: var(--removed); }
 td.line-removed { background: var(--removed-bg); }
 td.line-added   { background: var(--added-bg); }
 
+/* ========== Approved badge ========== */
+.badge-approved {
+  background: rgba(46, 160, 67, 0.2);
+  color: var(--added);
+}
+
+/* ========== Comments Panel ========== */
+.comments-panel {
+  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+  border: 1px solid var(--vscode-widget-border, #444);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.comments-header {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.comments-header:hover { background: var(--vscode-list-hoverBackground); }
+
+.comments-title {
+  font-weight: 600;
+  font-size: 0.92em;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.comments-count {
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.comments-body {
+  border-top: 1px solid var(--vscode-widget-border, #444);
+}
+
+.comments-empty {
+  padding: 14px 16px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.comments-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--vscode-widget-border, #333);
+}
+.comment-item:last-child { border-bottom: none; }
+.comment-item.comment-own { background: rgba(130, 80, 255, 0.04); }
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-size: 0.82em;
+}
+.comment-author {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+.comment-date {
+  color: var(--vscode-descriptionForeground);
+  flex: 1;
+}
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.comment-confirm-label {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+.comment-confirm-yes {
+  color: var(--removed) !important;
+  border-color: var(--removed) !important;
+}
+
+.comment-body {
+  font-size: 0.9em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-add {
+  padding: 12px 16px;
+  border-top: 1px solid var(--vscode-widget-border, #444);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, #555);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: inherit;
+  resize: vertical;
+  outline: none;
+}
+.comment-textarea:focus { border-color: var(--vscode-focusBorder); }
+
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 0.78em;
+}
+
 /* GitLab link */
 .link-gitlab {
   font-size: 0.82em;

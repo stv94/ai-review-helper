@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MergeRequest, ReviewNarrative, ParsedDiff, NarrativeBlock } from '../types';
+import { MergeRequest, ReviewNarrative, ParsedDiff, NarrativeBlock, ApprovalState } from '../types';
 import { Translations } from '../translations';
 import MrHeader from '../components/MrHeader';
 import DiffViewer from '../components/DiffViewer';
@@ -13,11 +13,15 @@ interface Props {
   parsedDiffs: ParsedDiff[];
   currentBlockIdx: number;
   diffModes: Record<string, DiffMode>;
+  approvalState: ApprovalState | null;
+  currentUserId: number | null;
   onPrev: () => void;
   onNext: () => void;
   onJump: (idx: number) => void;
   onSetDiffMode: (diffId: string, mode: DiffMode) => void;
   onOpenInGitLab: (url: string) => void;
+  onApprove: () => void;
+  onRevoke: () => void;
 }
 
 // ---- Overview banner ----
@@ -117,11 +121,15 @@ export default function ReviewScreen({
   parsedDiffs,
   currentBlockIdx,
   diffModes,
+  approvalState,
+  currentUserId,
   onPrev,
   onNext,
   onJump,
   onSetDiffMode,
   onOpenInGitLab,
+  onApprove,
+  onRevoke,
 }: Props) {
   const { blocks } = narrative;
   const block = blocks[currentBlockIdx];
@@ -129,7 +137,15 @@ export default function ReviewScreen({
 
   return (
     <div className="screen">
-      <MrHeader mr={mr} t={t} onOpenInGitLab={onOpenInGitLab} />
+      <MrHeader
+        mr={mr}
+        t={t}
+        onOpenInGitLab={onOpenInGitLab}
+        approvalState={approvalState}
+        currentUserId={currentUserId}
+        onApprove={onApprove}
+        onRevoke={onRevoke}
+      />
 
       <OverviewBanner overview={narrative.overview} label={t.secOverview} />
 
