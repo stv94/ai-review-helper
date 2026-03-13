@@ -190,7 +190,7 @@ export class ReviewPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src data:;">
   <title>AI MR Reviewer</title>
   <style nonce="${nonce}">
     :root {
@@ -623,8 +623,8 @@ export class ReviewPanel {
   <div class="toolbar">
     <span class="toolbar-title">🔍 AI MR Reviewer</span>
     <div class="toolbar-spacer"></div>
-    <button class="btn-ghost btn-sm" id="btnBack" onclick="showScreen('input')" style="display:none">← New MR</button>
-    <button class="btn-ghost btn-sm" onclick="openSettings()">⚙ Settings</button>
+    <button class="btn-ghost btn-sm" id="btnBack" style="display:none">← New MR</button>
+    <button class="btn-ghost btn-sm" id="btnSettings">⚙ Settings</button>
   </div>
 
   <div class="content">
@@ -637,9 +637,8 @@ export class ReviewPanel {
         <div class="input-section">
           <label class="input-label">MR URL</label>
           <div class="url-row">
-            <input type="text" id="mrUrl" placeholder="https://gitlab.com/group/project/-/merge_requests/42"
-              onkeydown="if(event.key==='Enter') loadByUrl()" />
-            <button class="btn-primary" onclick="loadByUrl()">Load</button>
+            <input type="text" id="mrUrl" placeholder="https://gitlab.com/group/project/-/merge_requests/42" />
+            <button class="btn-primary" id="btnLoadUrl">Load</button>
           </div>
         </div>
 
@@ -656,7 +655,7 @@ export class ReviewPanel {
               <label>MR IID</label>
               <input type="number" id="mrIid" placeholder="42" min="1" />
             </div>
-            <button class="btn-primary" onclick="loadByIds()">Load</button>
+            <button class="btn-primary" id="btnLoadIds">Load</button>
           </div>
         </div>
       </div>
@@ -674,7 +673,7 @@ export class ReviewPanel {
     <div id="screen-error" class="screen">
       <div class="error-box" id="errorMsg"></div>
       <div style="margin-top:16px">
-        <button class="btn-secondary" onclick="showScreen('input')">← Back</button>
+        <button class="btn-secondary" id="btnErrorBack">← Back</button>
       </div>
     </div>
 
@@ -682,9 +681,8 @@ export class ReviewPanel {
     <div id="screen-mr" class="screen">
       <div class="mr-header" id="mrHeader"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-        <button class="btn-primary" id="btnGenerate" onclick="generateReview()">✨ Generate AI Review</button>
+        <button class="btn-primary" id="btnGenerate">✨ Generate AI Review</button>
       </div>
-      <!-- Diff list overview -->
       <div id="diffOverview"></div>
     </div>
 
@@ -693,12 +691,11 @@ export class ReviewPanel {
       <div class="mr-header" id="mrHeaderReview"></div>
       <div class="walkthrough">
         <div class="nav-bar">
-          <button class="btn-secondary btn-sm" id="btnPrev" onclick="navigate(-1)">← Prev</button>
+          <button class="btn-secondary btn-sm" id="btnPrev">← Prev</button>
           <span class="nav-counter" id="navCounter">1 / 1</span>
-          <button class="btn-primary btn-sm" id="btnNext" onclick="navigate(1)">Next →</button>
+          <button class="btn-primary btn-sm" id="btnNext">Next →</button>
           <div class="nav-spacer"></div>
-          <select class="jump-select" id="jumpSelect" onchange="jumpTo(this.value)">
-          </select>
+          <select class="jump-select" id="jumpSelect"></select>
         </div>
         <div class="block-content" id="blockContent"></div>
       </div>
@@ -709,31 +706,58 @@ export class ReviewPanel {
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
 
-  // State
   let state = {
     mr: null,
     diffBlocks: [],
     parsedDiffs: [],
     narrative: null,
     currentBlock: 0,
-    diffModes: {},  // diffId -> 'inline' | 'split'
+    diffModes: {},
   };
 
+  // ============ Wire up static buttons ============
+  document.getElementById('btnBack').addEventListener('click', () => showScreen('input'));
+  document.getElementById('btnSettings').addEventListener('click', () => vscode.postMessage({ type: 'openSettings' }));
+  document.getElementById('btnLoadUrl').addEventListener('click', loadByUrl);
+  document.getElementById('btnLoadIds').addEventListener('click', loadByIds);
+  document.getElementById('btnErrorBack').addEventListener('click', () => showScreen('input'));
+  document.getElementById('btnGenerate').addEventListener('click', generateReview);
+  document.getElementById('btnPrev').addEventListener('click', () => navigate(-1));
+  document.getElementById('btnNext').addEventListener('click', () => navigate(1));
+  document.getElementById('jumpSelect').addEventListener('change', function() { jumpTo(this.value); });
+
+  document.getElementById('mrUrl').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loadByUrl();
+  });
+
+  // ============ Event delegation for dynamic content ============
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!target) return;
+
+    // GitLab link
+    const gitlabLink = target.closest('[data-gitlab-url]');
+    if (gitlabLink) {
+      vscode.postMessage({ type: 'openInGitLab', url: gitlabLink.dataset.gitlabUrl });
+      return;
+    }
+
+    // Diff mode toggle button
+    const modeBtn = target.closest('[data-diff-mode]');
+    if (modeBtn) {
+      setDiffMode(modeBtn.dataset.diffId, modeBtn.dataset.diffMode);
+      return;
+    }
+  });
+
+  // ============ Extension messages ============
   window.addEventListener('message', (event) => {
     const msg = event.data;
     switch (msg.type) {
-      case 'loading':
-        showLoading(msg.message);
-        break;
-      case 'error':
-        showError(msg.message);
-        break;
-      case 'mrLoaded':
-        onMrLoaded(msg.mr, msg.diffBlocks);
-        break;
-      case 'reviewReady':
-        onReviewReady(msg.narrative, msg.parsedDiffs);
-        break;
+      case 'loading':  showLoading(msg.message); break;
+      case 'error':    showError(msg.message);   break;
+      case 'mrLoaded': onMrLoaded(msg.mr, msg.diffBlocks); break;
+      case 'reviewReady': onReviewReady(msg.narrative, msg.parsedDiffs); break;
     }
   });
 
@@ -742,8 +766,7 @@ export class ReviewPanel {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const s = document.getElementById('screen-' + name);
     if (s) s.classList.add('active');
-    document.getElementById('btnBack').style.display =
-      (name !== 'input') ? '' : 'none';
+    document.getElementById('btnBack').style.display = (name !== 'input') ? '' : 'none';
   }
 
   function showLoading(msg) {
@@ -770,15 +793,11 @@ export class ReviewPanel {
     vscode.postMessage({ type: 'loadMRByIds', projectPath: path, mrIid: iid });
   }
 
-  function openSettings() {
-    vscode.postMessage({ type: 'openSettings' });
-  }
-
   // ============ MR Loaded ============
   function onMrLoaded(mr, diffBlocks) {
     state.mr = mr;
     state.diffBlocks = diffBlocks;
-
+    document.getElementById('btnGenerate').disabled = false;
     renderMrHeader('mrHeader', mr);
     renderDiffOverview(diffBlocks);
     showScreen('mr');
@@ -786,35 +805,39 @@ export class ReviewPanel {
 
   function renderMrHeader(targetId, mr) {
     const el = document.getElementById(targetId);
-    const desc = mr.description ? mr.description.substring(0, 300) + (mr.description.length > 300 ? '…' : '') : '';
-    el.innerHTML = \`
-      <div class="mr-title-row">
-        <span class="mr-iid">!\${mr.iid}</span>
-        <span class="mr-title">\${escHtml(mr.title)}</span>
-        <span class="badge">\${escHtml(mr.state || 'open')}</span>
-      </div>
-      <div class="mr-meta">
-        <span>👤 \${escHtml(mr.author?.name || '')}</span>
-        <span>🌿 <code>\${escHtml(mr.source_branch)}</code> → <code>\${escHtml(mr.target_branch)}</code></span>
-        <a class="link-gitlab" onclick="openGitLab('\${escAttr(mr.web_url)}')">🔗 Open in GitLab</a>
-      </div>
-      \${desc ? \`<div class="mr-description" id="desc-\${targetId}">\${escHtml(desc)}</div>\` : ''}
-    \`;
+    const desc = mr.description
+      ? escHtml(mr.description.substring(0, 300)) + (mr.description.length > 300 ? '…' : '')
+      : '';
+    el.innerHTML =
+      '<div class="mr-title-row">' +
+        '<span class="mr-iid">!' + mr.iid + '</span>' +
+        '<span class="mr-title">' + escHtml(mr.title) + '</span>' +
+        '<span class="badge">' + escHtml(mr.state || 'open') + '</span>' +
+      '</div>' +
+      '<div class="mr-meta">' +
+        '<span>👤 ' + escHtml((mr.author && mr.author.name) || '') + '</span>' +
+        '<span>🌿 <code>' + escHtml(mr.source_branch) + '</code> → <code>' + escHtml(mr.target_branch) + '</code></span>' +
+        '<a class="link-gitlab" data-gitlab-url="' + escAttr(mr.web_url) + '">🔗 Open in GitLab</a>' +
+      '</div>' +
+      (desc ? '<div class="mr-description">' + desc + '</div>' : '');
   }
 
   function renderDiffOverview(diffBlocks) {
     const el = document.getElementById('diffOverview');
-    el.innerHTML = \`
-      <div style="font-size:0.9em;color:var(--vscode-descriptionForeground);margin-bottom:12px;">
-        \${diffBlocks.length} file(s) changed
-      </div>
-      \${diffBlocks.map(b => \`
-        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-family:monospace;font-size:0.88em;border-bottom:1px solid var(--vscode-widget-border,#333)">
-          \${b.isNewFile ? '<span style="color:var(--added)">+</span>' : b.isDeletedFile ? '<span style="color:var(--removed)">-</span>' : '<span style="color:var(--vscode-descriptionForeground)">~</span>'}
-          <span style="flex:1;word-break:break-all">\${escHtml(b.filePath)}</span>
-        </div>
-      \`).join('')}
-    \`;
+    let html = '<div style="font-size:0.9em;color:var(--vscode-descriptionForeground);margin-bottom:12px;">' +
+      diffBlocks.length + ' file(s) changed</div>';
+    for (const b of diffBlocks) {
+      const sign = b.isNewFile
+        ? '<span style="color:var(--added)">+</span>'
+        : b.isDeletedFile
+        ? '<span style="color:var(--removed)">-</span>'
+        : '<span style="color:var(--vscode-descriptionForeground)">~</span>';
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-family:monospace;font-size:0.88em;border-bottom:1px solid var(--vscode-widget-border,#333)">' +
+        sign +
+        '<span style="flex:1;word-break:break-all">' + escHtml(b.filePath) + '</span>' +
+        '</div>';
+    }
+    el.innerHTML = html;
   }
 
   // ============ Generate Review ============
@@ -829,10 +852,9 @@ export class ReviewPanel {
     state.parsedDiffs = parsedDiffs;
     state.currentBlock = 0;
 
-    // Build jump select
     const jumpSel = document.getElementById('jumpSelect');
     jumpSel.innerHTML = narrative.blocks.map((b, i) =>
-      \`<option value="\${i}">Step \${i+1}: \${escHtml(b.title.substring(0,40))}</option>\`
+      '<option value="' + i + '">Step ' + (i+1) + ': ' + escHtml(b.title.substring(0,40)) + '</option>'
     ).join('');
 
     renderMrHeader('mrHeaderReview', state.mr);
@@ -841,10 +863,10 @@ export class ReviewPanel {
   }
 
   function navigate(delta) {
-    const blocks = state.narrative.blocks;
-    state.currentBlock = Math.max(0, Math.min(blocks.length - 1, state.currentBlock + delta));
-    renderCurrentBlock();
+    const len = state.narrative.blocks.length;
+    state.currentBlock = Math.max(0, Math.min(len - 1, state.currentBlock + delta));
     document.getElementById('jumpSelect').value = state.currentBlock;
+    renderCurrentBlock();
   }
 
   function jumpTo(index) {
@@ -858,45 +880,42 @@ export class ReviewPanel {
     const block = blocks[idx];
     if (!block) return;
 
-    // Update counter
-    document.getElementById('navCounter').textContent = \`\${idx + 1} / \${blocks.length}\`;
+    document.getElementById('navCounter').textContent = (idx + 1) + ' / ' + blocks.length;
     document.getElementById('btnPrev').disabled = idx === 0;
     document.getElementById('btnNext').disabled = idx === blocks.length - 1;
 
-    // Render diffs for this block
     const diffs = block.diffIds
       .map(id => state.parsedDiffs.find(pd => pd.block.id === id))
       .filter(Boolean);
 
-    const diffHtml = diffs.map(pd => renderDiffBlock(pd)).join('');
+    let html =
+      '<div class="narrative-block">' +
+        '<div class="block-header">' +
+          '<div class="block-step">' + (idx + 1) + '</div>' +
+          '<div class="block-title">' + escHtml(block.title) + '</div>' +
+        '</div>' +
+        '<div class="block-section">' +
+          '<div class="block-section-label">📋 Explanation</div>' +
+          '<div class="block-explanation">' + escHtml(block.explanation) + '</div>' +
+        '</div>';
 
-    document.getElementById('blockContent').innerHTML = \`
-      <div class="narrative-block">
-        <div class="block-header">
-          <div class="block-step">\${idx + 1}</div>
-          <div class="block-title">\${escHtml(block.title)}</div>
-        </div>
+    if (diffs.length > 0) {
+      html += '<div class="block-section">' +
+        '<div class="block-section-label">📄 Changes (' + diffs.length + ' file' + (diffs.length > 1 ? 's' : '') + ')</div>' +
+        diffs.map(pd => renderDiffBlock(pd)).join('') +
+        '</div>';
+    }
 
-        <div class="block-section">
-          <div class="block-section-label">📋 Explanation</div>
-          <div class="block-explanation">\${escHtml(block.explanation)}</div>
-        </div>
+    if (block.analysis) {
+      html +=
+        '<div class="block-section">' +
+          '<div class="block-section-label">⚠️ Critical Analysis</div>' +
+          '<div class="block-analysis">' + escHtml(block.analysis) + '</div>' +
+        '</div>';
+    }
 
-        \${diffs.length > 0 ? \`
-        <div class="block-section">
-          <div class="block-section-label">📄 Changes (\${diffs.length} file\${diffs.length > 1 ? 's' : ''})</div>
-          \${diffHtml}
-        </div>
-        \` : ''}
-
-        \${block.analysis ? \`
-        <div class="block-section">
-          <div class="block-section-label">⚠️ Critical Analysis</div>
-          <div class="block-analysis">\${escHtml(block.analysis)}</div>
-        </div>
-        \` : ''}
-      </div>
-    \`;
+    html += '</div>';
+    document.getElementById('blockContent').innerHTML = html;
   }
 
   // ============ Diff Rendering ============
@@ -905,9 +924,12 @@ export class ReviewPanel {
     const diffId = b.id;
     const mode = state.diffModes[diffId] || 'inline';
 
-    const badge = b.isNewFile ? '<span class="diff-badge new">NEW</span>'
-      : b.isDeletedFile ? '<span class="diff-badge deleted">DELETED</span>'
-      : b.isRenamedFile ? '<span class="diff-badge renamed">RENAMED</span>'
+    const badge = b.isNewFile
+      ? '<span class="diff-badge new">NEW</span>'
+      : b.isDeletedFile
+      ? '<span class="diff-badge deleted">DELETED</span>'
+      : b.isRenamedFile
+      ? '<span class="diff-badge renamed">RENAMED</span>'
       : '';
 
     const gitlabUrl = state.mr.web_url + '/diffs';
@@ -916,73 +938,59 @@ export class ReviewPanel {
       ? '<div style="padding:8px 12px;color:var(--vscode-descriptionForeground);font-size:0.85em">No diff content</div>'
       : parsedDiff.hunks.map(h => renderHunk(h, mode)).join('');
 
-    return \`
-      <div class="diff-container" id="dc-\${diffId}">
-        <div class="diff-file-header">
-          <span class="diff-file-path">\${escHtml(b.filePath)}</span>
-          \${badge}
-          <div class="diff-mode-toggle">
-            <button class="diff-mode-btn \${mode==='inline'?'active':''}" onclick="setDiffMode('\${diffId}','inline')">Inline</button>
-            <button class="diff-mode-btn \${mode==='split'?'active':''}" onclick="setDiffMode('\${diffId}','split')">Split</button>
-          </div>
-          <a class="link-gitlab" onclick="openGitLab('\${escAttr(gitlabUrl)}')">↗ GitLab</a>
-        </div>
-        <div class="diff-\${mode}" id="dm-\${diffId}">
-          \${hunksHtml}
-        </div>
-      </div>
-    \`;
+    return '<div class="diff-container" id="dc-' + diffId + '">' +
+      '<div class="diff-file-header">' +
+        '<span class="diff-file-path">' + escHtml(b.filePath) + '</span>' +
+        badge +
+        '<div class="diff-mode-toggle">' +
+          '<button class="diff-mode-btn ' + (mode==='inline'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="inline">Inline</button>' +
+          '<button class="diff-mode-btn ' + (mode==='split'?'active':'') + '" data-diff-id="' + diffId + '" data-diff-mode="split">Split</button>' +
+        '</div>' +
+        '<a class="link-gitlab" data-gitlab-url="' + escAttr(gitlabUrl) + '">↗ GitLab</a>' +
+      '</div>' +
+      '<div class="diff-' + mode + '" id="dm-' + diffId + '">' + hunksHtml + '</div>' +
+    '</div>';
   }
 
   function renderHunk(hunk, mode) {
-    const header = \`<div class="diff-hunk-header">\${escHtml(hunk.header)}</div>\`;
-    if (mode === 'split') {
-      return header + renderHunkSplit(hunk);
-    }
-    return header + renderHunkInline(hunk);
+    const header = '<div class="diff-hunk-header">' + escHtml(hunk.header) + '</div>';
+    return mode === 'split'
+      ? header + renderHunkSplit(hunk)
+      : header + renderHunkInline(hunk);
   }
 
   function renderHunkInline(hunk) {
-    const rows = hunk.lines.map(l => {
+    let rows = '';
+    for (const l of hunk.lines) {
       const cls = l.type === 'added' ? 'line-added' : l.type === 'removed' ? 'line-removed' : '';
       const sign = l.type === 'added' ? '+' : l.type === 'removed' ? '-' : ' ';
       const oldNum = l.oldLineNumber != null ? l.oldLineNumber : '';
       const newNum = l.newLineNumber != null ? l.newLineNumber : '';
-      return \`<tr class="\${cls}">
-        <td class="line-num">\${oldNum}</td>
-        <td class="line-num">\${newNum}</td>
-        <td class="line-sign">\${sign}</td>
-        <td class="line-code">\${escHtml(l.content)}</td>
-      </tr>\`;
-    }).join('');
-    return \`<table>\${rows}</table>\`;
+      rows += '<tr class="' + cls + '">' +
+        '<td class="line-num">' + oldNum + '</td>' +
+        '<td class="line-num">' + newNum + '</td>' +
+        '<td class="line-sign">' + sign + '</td>' +
+        '<td class="line-code">' + escHtml(l.content) + '</td>' +
+      '</tr>';
+    }
+    return '<table>' + rows + '</table>';
   }
 
   function renderHunkSplit(hunk) {
-    // Pair up added/removed lines for split view
     const pairs = buildSplitPairs(hunk.lines);
-    const rows = pairs.map(([left, right]) => {
-      const leftCls = left?.type === 'removed' ? 'line-removed' : '';
-      const rightCls = right?.type === 'added' ? 'line-added' : '';
-      const leftNum = left?.oldLineNumber ?? left?.newLineNumber ?? '';
-      const rightNum = right?.newLineNumber ?? right?.oldLineNumber ?? '';
-      return \`<tr>
-        <td class="\${leftCls}">
-          <div class="split-cell">
-            <span class="line-num">\${leftNum}</span>
-            <span class="line-code">\${left ? escHtml(left.content) : ''}</span>
-          </div>
-        </td>
-        <td class="split-divider"></td>
-        <td class="\${rightCls}">
-          <div class="split-cell">
-            <span class="line-num">\${rightNum}</span>
-            <span class="line-code">\${right ? escHtml(right.content) : ''}</span>
-          </div>
-        </td>
-      </tr>\`;
-    }).join('');
-    return \`<table>\${rows}</table>\`;
+    let rows = '';
+    for (const [left, right] of pairs) {
+      const leftCls = left && left.type === 'removed' ? 'line-removed' : '';
+      const rightCls = right && right.type === 'added' ? 'line-added' : '';
+      const leftNum = left ? (left.oldLineNumber != null ? left.oldLineNumber : left.newLineNumber != null ? left.newLineNumber : '') : '';
+      const rightNum = right ? (right.newLineNumber != null ? right.newLineNumber : right.oldLineNumber != null ? right.oldLineNumber : '') : '';
+      rows += '<tr>' +
+        '<td class="' + leftCls + '"><div class="split-cell"><span class="line-num">' + leftNum + '</span><span class="line-code">' + (left ? escHtml(left.content) : '') + '</span></div></td>' +
+        '<td class="split-divider"></td>' +
+        '<td class="' + rightCls + '"><div class="split-cell"><span class="line-num">' + rightNum + '</span><span class="line-code">' + (right ? escHtml(right.content) : '') + '</span></div></td>' +
+      '</tr>';
+    }
+    return '<table>' + rows + '</table>';
   }
 
   function buildSplitPairs(lines) {
@@ -994,10 +1002,9 @@ export class ReviewPanel {
         pairs.push([l, l]);
         i++;
       } else if (l.type === 'removed') {
-        // Look ahead for matching added
-        const nextAdded = lines[i + 1];
-        if (nextAdded && nextAdded.type === 'added') {
-          pairs.push([l, nextAdded]);
+        const next = lines[i + 1];
+        if (next && next.type === 'added') {
+          pairs.push([l, next]);
           i += 2;
         } else {
           pairs.push([l, null]);
@@ -1015,19 +1022,16 @@ export class ReviewPanel {
 
   function setDiffMode(diffId, mode) {
     state.diffModes[diffId] = mode;
-    // Re-render just this diff block
     const parsedDiff = state.parsedDiffs.find(pd => pd.block.id === diffId);
     if (!parsedDiff) return;
     const container = document.getElementById('dc-' + diffId);
     if (!container) return;
-    container.outerHTML = renderDiffBlock(parsedDiff);
+    const newEl = document.createElement('div');
+    newEl.innerHTML = renderDiffBlock(parsedDiff);
+    container.replaceWith(newEl.firstChild);
   }
 
   // ============ Helpers ============
-  function openGitLab(url) {
-    vscode.postMessage({ type: 'openInGitLab', url });
-  }
-
   function escHtml(str) {
     if (str == null) return '';
     return String(str)
@@ -1038,9 +1042,7 @@ export class ReviewPanel {
       .replace(/'/g, '&#039;');
   }
 
-  function escAttr(str) {
-    return escHtml(str);
-  }
+  function escAttr(str) { return escHtml(str); }
 </script>
 </body>
 </html>`;

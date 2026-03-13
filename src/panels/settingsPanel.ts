@@ -333,12 +333,12 @@ export class SettingsPanel {
       </label>
       <div class="input-row">
         <input type="password" id="gitlabToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
-        <button class="toggle-pw" onclick="togglePassword('gitlabToken', this)">Show</button>
+        <button class="toggle-pw" id="toggleGitlabToken">Show</button>
       </div>
     </div>
 
     <div class="actions">
-      <button class="btn-test" onclick="testGitLab()">🔌 Test Connection</button>
+      <button class="btn-test" id="btnTestGitlab">🔌 Test Connection</button>
     </div>
     <div id="gitlabTestResult" class="test-result"></div>
   </div>
@@ -351,7 +351,7 @@ export class SettingsPanel {
 
     <div class="field">
       <label for="llmProvider">Provider</label>
-      <select id="llmProvider" onchange="onProviderChange()">
+      <select id="llmProvider">
         <option value="openai">OpenAI</option>
         <option value="openrouter">OpenRouter</option>
         <option value="custom">Custom (OpenAI-compatible)</option>
@@ -366,7 +366,7 @@ export class SettingsPanel {
       </label>
       <div class="input-row">
         <input type="password" id="llmApiKey" placeholder="sk-..." autocomplete="off" />
-        <button class="toggle-pw" onclick="togglePassword('llmApiKey', this)">Show</button>
+        <button class="toggle-pw" id="toggleLlmApiKey">Show</button>
       </div>
     </div>
 
@@ -395,15 +395,15 @@ export class SettingsPanel {
     </div>
 
     <div class="actions">
-      <button class="btn-test" onclick="testLLM()">🔌 Test LLM Connection</button>
+      <button class="btn-test" id="btnTestLlm">🔌 Test LLM Connection</button>
     </div>
     <div id="llmTestResult" class="test-result"></div>
   </div>
 
   <!-- Save Bar -->
   <div class="save-bar">
-    <button class="btn-primary" onclick="saveSettings()">💾 Save Settings</button>
-    <button class="btn-secondary" onclick="resetToDefaults()">↩ Reset to defaults</button>
+    <button class="btn-primary" id="btnSave">💾 Save Settings</button>
+    <button class="btn-secondary" id="btnReset">↩ Reset to defaults</button>
     <span id="saveStatus" class="save-status">✓ Saved</span>
   </div>
 
@@ -412,7 +412,7 @@ export class SettingsPanel {
 
     const PROVIDER_HINTS = {
       openai: '',
-      openrouter: 'OpenRouter lets you access many models. Get your key at <a href="#">openrouter.ai</a>. The Base URL is set automatically.',
+      openrouter: 'OpenRouter lets you access many models. Get your key at openrouter.ai. The Base URL is set automatically.',
       custom: 'Use any OpenAI-compatible endpoint. Enter the full base URL including path (e.g. http://localhost:1234/v1).',
     };
 
@@ -422,6 +422,16 @@ export class SettingsPanel {
       custom: { model: '', baseUrl: '' },
     };
 
+    // ============ Wire up buttons ============
+    document.getElementById('btnSave').addEventListener('click', saveSettings);
+    document.getElementById('btnReset').addEventListener('click', resetToDefaults);
+    document.getElementById('btnTestGitlab').addEventListener('click', testGitLab);
+    document.getElementById('btnTestLlm').addEventListener('click', testLLM);
+    document.getElementById('llmProvider').addEventListener('change', () => onProviderChange(true));
+    document.getElementById('toggleGitlabToken').addEventListener('click', function() { togglePassword('gitlabToken', this); });
+    document.getElementById('toggleLlmApiKey').addEventListener('click', function() { togglePassword('llmApiKey', this); });
+
+    // ============ Extension messages ============
     window.addEventListener('message', (event) => {
       const msg = event.data;
       switch (msg.type) {
@@ -477,12 +487,12 @@ export class SettingsPanel {
       });
     }
 
-    function onProviderChange(autoFill = true) {
+    function onProviderChange(autoFill) {
       const provider = document.getElementById('llmProvider').value;
       const hint = document.getElementById('providerHint');
       const hintText = PROVIDER_HINTS[provider] || '';
       if (hintText) {
-        hint.innerHTML = hintText;
+        hint.textContent = hintText;
         hint.style.display = 'block';
       } else {
         hint.style.display = 'none';
@@ -492,7 +502,7 @@ export class SettingsPanel {
         const defaults = PROVIDER_DEFAULTS[provider];
         if (defaults) {
           if (defaults.model) document.getElementById('llmModel').value = defaults.model;
-          if (defaults.baseUrl) document.getElementById('llmBaseUrl').value = defaults.baseUrl;
+          if (defaults.baseUrl !== undefined) document.getElementById('llmBaseUrl').value = defaults.baseUrl;
         }
       }
     }
@@ -509,7 +519,6 @@ export class SettingsPanel {
     }
 
     function testGitLab() {
-      // Save current values first, then test
       vscode.postMessage({ type: 'saveSettings', settings: collectSettings() });
       showTestResult('gitlab', null, 'Testing connection...');
       vscode.postMessage({ type: 'testGitLab' });
