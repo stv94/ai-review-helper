@@ -4,7 +4,8 @@
 
 Stop reading diffs line by line. Let AI understand the change for you, then walk through it like a structured story.
 
-[![Watch the demo](/resources/image.png)](https://www.youtube.com/watch?v=Teapyo62mtI)
+![Demo](https://raw.githubusercontent.com/stv94/ai-review-helper/main/.github/code.gif)
+
 
 ---
 
