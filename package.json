@@ -3,11 +3,36 @@
   "displayName": "AI Merge Request Reviewer",
   "description": "AI-powered GitLab Merge Request reviewer with step-by-step walkthrough",
   "version": "0.1.0",
-  "publisher": "ai-review-helper",
+  "publisher": "stv",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
+  "keywords": [
+    "gitlab",
+    "merge request",
+    "code review",
+    "AI",
+    "diff",
+    "pull request",
+    "LLM",
+    "openai",
+    "openrouter",
+    "review"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stv94/ai-review-helper"
+  },
+  "bugs": {
+    "url": "https://github.com/stv94/ai-review-helper/issues"
+  },
+  "homepage": "https://github.com/stv94/ai-review-helper#readme",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "icon": "resources/icon.png",
   "activationEvents": [],
   "main": "./out/extension.js",
