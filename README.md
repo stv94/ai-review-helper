@@ -97,7 +97,7 @@ All settings are under the `ai-review-helper.*` namespace:
 | `ai-review-helper.llmApiKey` | — | LLM API key |
 | `ai-review-helper.llmModel` | `gpt-5.1` | Model name (e.g. `gpt-5.1`, `anthropic/claude-opus-4-6`) |
 | `ai-review-helper.llmBaseUrl` | — | Base URL for OpenRouter or custom endpoints |
-| `ai-review-helper.maxDiffChunkSize` | `8000` | Max characters per diff chunk (tune for your model's context window) |
+| `ai-review-helper.maxDiffChunkSize` | `128000` | Max characters per diff chunk (tune for your model's context window) |
 | `ai-review-helper.language` | `en` | UI and review language |
 
 ---

@@ -2,7 +2,7 @@
   "name": "ai-review-helper",
   "displayName": "AI Merge Request Reviewer",
   "description": "AI-powered GitLab Merge Request reviewer with step-by-step walkthrough",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "publisher": "stv",
   "engines": {
     "vscode": "^1.85.0"
@@ -108,7 +108,7 @@
         },
         "ai-review-helper.maxDiffChunkSize": {
           "type": "number",
-          "default": 8000,
+          "default": 128000,
           "description": "Max characters per diff chunk sent to LLM (to avoid context limits)",
           "order": 7
         },
